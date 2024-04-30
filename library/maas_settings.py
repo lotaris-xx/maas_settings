@@ -8,7 +8,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: my_test
+module: maas_settings
 
 short_description: This is my test module
 
