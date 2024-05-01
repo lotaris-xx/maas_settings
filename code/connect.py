@@ -58,6 +58,7 @@ if __name__ == "__main__":
     site = "http://maas1.internal.lotaris.org:5240/MAAS"
 
     r = grab_maas_apikey(site, args.username, args.password)
+    r.raise_for_status()
 
     c = MAASAPICred(r.json())
 
