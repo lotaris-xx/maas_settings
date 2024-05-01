@@ -10,24 +10,24 @@ import uuid
 
 from requests_oauthlib import OAuth1Session
 
-if __name__ == "__main__":
-    log = logging.getLogger("requests_oauthlib")
-    log.addHandler(logging.StreamHandler(sys.stdout))
-    log.setLevel(logging.INFO)
 
-    parser = argparse.ArgumentParser(
-        prog="connect.py",
-        description="Test connectivity to maas, grab token and use it",
-        epilog="Used to help build an ansible module",
-    )
+class MAASAPICred:
+    """
+    Represents a MAAS API Credenital
+    Provides both MAAS API and OAuth terminology
+    """
 
-    parser.add_argument("username")
-    parser.add_argument("password")
+    def __init__(self, api_json):
+        self.consumer_key = api_json["consumer_key"]
+        self.token_key = api_json["token_key"]
+        self.token_secret = api_json["token_secret"]
+        self.client_key = self.consumer_key
+        self.resource_owner_key = self.token_key
+        self.resource_owner_secret = self.token_secret
 
-    args = parser.parse_args()
 
+def grab_maas_apikey(site, username, password):
     consumer = os.environ.get("USER") + "@" + os.environ.get("HOSTNAME")
-    site = "http://maas1.internal.lotaris.org:5240/MAAS"
     uri = "/accounts/authenticate/"
 
     payload = {
@@ -36,20 +36,38 @@ if __name__ == "__main__":
         "consumer": consumer,
     }
 
-    r = requests.post(site + uri, data=payload)
+    return requests.post(site + uri, data=payload)
 
-    credential = r.json()
 
-    CONSUMER_KEY = credential["consumer_key"]
-    CONSUMER_TOKEN = credential["token_key"]
-    SECRET = credential["token_secret"]
+if __name__ == "__main__":
+    log = logging.getLogger("requests_oauthlib")
+    log.addHandler(logging.StreamHandler(sys.stdout))
+    log.setLevel(logging.INFO)
 
-    maas = OAuth1Session(
-        CONSUMER_KEY,
-        resource_owner_key=CONSUMER_TOKEN,
-        resource_owner_secret=SECRET,
+    parser = argparse.ArgumentParser(
+        prog="connect.py",
+        description="Test connectivity to MAAS, grab token and use it",
+        epilog="Used to help build an ansible module",
+    )
+
+    parser.add_argument("username")
+    parser.add_argument("password")
+
+    args = parser.parse_args()
+
+    site = "http://maas1.internal.lotaris.org:5240/MAAS"
+
+    r = grab_maas_apikey(site, args.username, args.password)
+
+    c = MAASAPICred(r.json())
+
+    maas_session = OAuth1Session(
+        c.client_key,
+        resource_owner_key=c.resource_owner_key,
+        resource_owner_secret=c.resource_owner_secret,
         signature_method="PLAINTEXT",
     )
-    users = maas.get(f"{site}/api/2.0/users/")
+
+    users = maas_session.get(f"{site}/api/2.0/users/")
     users.raise_for_status()
     print(json.dumps(users.json(), indent=2))
