@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 from argparse import ArgumentParser
 from requests import post
 from requests_oauthlib import OAuth1Session
+from yaml import safe_dump
 
 __metaclass__ = type
 
@@ -120,7 +121,7 @@ def run_module():
     # changed is if this module effectively modified the target
     # state will include any data that you want your module to pass back
     # for consumption, for example, in a subsequent task
-    result = dict(changed=False, message={})
+    result = dict(changed=False, message={}, diff={})
 
     # the AnsibleModule object will be our abstraction working with Ansible
     # this includes instantiation, a couple of common attr would be the
@@ -131,8 +132,6 @@ def run_module():
     # if the user is working with this module in only check mode we do not
     # want to make any changes to the environment, just return the current
     # state with no modifications
-    if module.check_mode:
-        module.exit_json(**result)
 
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
@@ -164,24 +163,34 @@ def run_module():
         for vlan in module.params["configs"]["vlans"]:
             if str(vlan["name"]) not in current_vlans_dict.keys():
                 vlist.append(vlan["name"])
-
-                # Create a new vlan
-                payload = {"name": vlan["name"], "vid": vlan["name"], "fabric_id": "0"}
-                r = maas_session.post(
-                    module.params["site"] + "/api/2.0/fabrics/0/vlans/", data=payload
-                )
-                # r.raise_for_status()
-
                 result["changed"] = True
+
+                if not module.check_mode:
+                    # Create a new vlan
+                    payload = {
+                        "name": vlan["name"],
+                        "vid": vlan["name"],
+                        "fabric_id": "0",
+                    }
+                    r = maas_session.post(
+                        module.params["site"] + "/api/2.0/fabrics/0/vlans/",
+                        data=payload,
+                    )
+                    r.raise_for_status()
+
+                    new_vlans_dict = {
+                        item["name"]: item
+                        for item in get_maas_vlans(maas_session, module.params)
+                    }
+
+                    result["diff"] = dict(
+                        before=safe_dump(current_vlans_dict),
+                        after=safe_dump(new_vlans_dict),
+                    )
 
         result["message"] = "Added vlans " + str(vlist)
     else:
         result["message"] = "Did not find vlans in keys"
-
-    # use whatever logic you need to determine whether or not this module
-    # made any modifications to your target
-    # if module.params["new"]:
-    #    result["changed"] = True
 
     # during the execution of the module, if there is an exception or a
     # conditional state that effectively causes a failure, run
