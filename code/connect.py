@@ -6,12 +6,11 @@ import logging
 import os
 import requests
 import sys
-import uuid
 
 from requests_oauthlib import OAuth1Session
 
 
-class MAASAPICred:
+class maas_api_cred:
     """
     Represents a MAAS API Credenital
     Provides both MAAS API and OAuth terminology
@@ -21,6 +20,7 @@ class MAASAPICred:
         self.consumer_key = api_json["consumer_key"]
         self.token_key = api_json["token_key"]
         self.token_secret = api_json["token_secret"]
+
         self.client_key = self.consumer_key
         self.resource_owner_key = self.token_key
         self.resource_owner_secret = self.token_secret
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     r = grab_maas_apikey(site, args.username, args.password)
     r.raise_for_status()
 
-    c = MAASAPICred(r.json())
+    c = maas_api_cred(r.json())
 
     maas_session = OAuth1Session(
         c.client_key,
