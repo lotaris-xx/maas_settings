@@ -1,0 +1,17 @@
+---
+- hosts: all
+  gather_facts: false
+  vars:
+    maas_configs:
+      vlans:
+        - name: 100
+        - name: 200
+        - name: 300
+  tasks:
+    - name: Set maas configs
+      maas_configs:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        configs: "{{ maas_configs }}"
+        site: "{{ maas_site }}"
+      delegate_to: localhost
