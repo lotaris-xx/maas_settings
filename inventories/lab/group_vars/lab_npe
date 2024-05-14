@@ -1,0 +1,4 @@
+---
+maas_configs_env:
+  vlans:
+    - name: "300"

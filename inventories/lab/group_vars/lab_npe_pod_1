@@ -1,0 +1,4 @@
+---
+maas_configs_pod:
+  vlans:
+    - name: "400"

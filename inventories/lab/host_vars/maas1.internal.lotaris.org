@@ -1,0 +1,4 @@
+---
+maas_configs_host:
+  vlans:
+    - name: "200"
