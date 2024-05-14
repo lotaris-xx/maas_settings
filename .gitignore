@@ -1,3 +1,4 @@
 local_files/*
 ansible-navigator.log
 *.bak
+__pycache__
