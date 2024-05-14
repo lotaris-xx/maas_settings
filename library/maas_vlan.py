@@ -13,14 +13,13 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: maas_configs
+module: maas_vlan
 
-short_description: Configure various maas settings
+short_description: Configure MAAS vlans
 
 version_added: "1.0.0"
 
-description: Configure various MAAS settings. Different kinds of
-settings are supported.
+description: Configure MAAS vlans
 
 options:
     configs:

@@ -2,8 +2,8 @@
 - hosts: all
   gather_facts: false
   tasks:
-    - name: Set maas configs
-      maas_configs:
+    - name: Set maas vlans
+      maas_vlan:
         username: "{{ maas_username }}"
         password: "{{ maas_password }}"
         configs: "{{ maas_configs }}"
