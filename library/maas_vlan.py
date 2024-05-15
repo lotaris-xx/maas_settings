@@ -4,7 +4,6 @@
 # License: MIT-0 (See https://opensource.org/license/mit-0)
 from __future__ import absolute_import, division, print_function
 
-from argparse import ArgumentParser
 from requests import post, exceptions
 from requests_oauthlib import OAuth1Session
 from yaml import safe_dump

@@ -9,5 +9,5 @@
         password: "{{ maas_password }}"
         vlans: "{{ maas_configs['vlans'] }}"
         site: "{{ maas_site }}"
-        state: "{{ vlan_state }}"
+        state: "{{ vlan_state| default(omit) }}"
       delegate_to: localhost
