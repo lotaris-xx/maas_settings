@@ -5,7 +5,7 @@
 from __future__ import absolute_import, division, print_function
 
 from argparse import ArgumentParser
-from requests import post
+from requests import post, exceptions
 from requests_oauthlib import OAuth1Session
 from yaml import safe_dump
 
@@ -108,22 +108,99 @@ class maas_api_cred:
 
 
 def get_maas_vlans(session, params):
-    current_vlans = session.get(f"{params['site']}/api/2.0/fabrics/0/vlans/")
-    current_vlans.raise_for_status()
-    return current_vlans.json()
+    try:
+        current_vlans = session.get(f"{params['site']}/api/2.0/fabrics/0/vlans/")
+        current_vlans.raise_for_status()
+        return current_vlans.json()
+    except exceptions.RequestException as e:
+        module.fail_json(msg="get_maas_vlans failed: {}".format(str(e)))
 
 
-def grab_maas_apikey(site, username, password):
+def grab_maas_apikey(module):
     consumer = "ansible@host"
     uri = "/accounts/authenticate/"
+    site = module.params["site"]
+    username = module.params["username"]
+    password = module.params["password"]
 
     payload = {
         "username": username,
         "password": password,
         "consumer": consumer,
     }
+    try:
+        ret = post(site + uri, data=payload)
+        ret.raise_for_status()
+        return ret
+    except exceptions.RequestException as e:
+        module.fail_json(msg="Auth failed: {}".format(str(e)))
 
-    return post(site + uri, data=payload)
+
+def maas_add_vlans(session, current_vlans, module, res):
+    vlist = []
+
+    for vlan in module.params["vlans"]:
+        if str(vlan["name"]) not in current_vlans.keys():
+            vlist.append(vlan["name"])
+            res["changed"] = True
+
+            if not module.check_mode:
+                # Create a new vlan
+                payload = {
+                    "name": vlan["name"],
+                    "vid": vlan["name"],
+                    "fabric_id": "0",
+                }
+                try:
+                    r = session.post(
+                        f"{module.params['site']}/api/2.0/fabrics/0/vlans/",
+                        data=payload,
+                    )
+                    r.raise_for_status()
+                except exceptions.RequestException as e:
+                    module.fail_json(msg="VLAN Add Failed: {}".format(str(e)))
+
+                new_vlans_dict = {
+                    item["name"]: item
+                    for item in get_maas_vlans(session, module.params)
+                }
+
+                res["diff"] = dict(
+                    before=safe_dump(current_vlans),
+                    after=safe_dump(new_vlans_dict),
+                )
+
+        res["message"] = "Added vlans " + str(vlist)
+
+
+def maas_delete_vlans(session, current_vlans, module, res):
+    vlist = []
+
+    for vlan in module.params["vlans"]:
+        if str(vlan["name"]) in current_vlans.keys():
+            vlist.append(vlan["name"])
+            res["changed"] = True
+
+            if not module.check_mode:
+                try:
+                    r = session.delete(
+                        f"{module.params['site']}/api/2.0/fabrics/0/vlans/{vlan['name']}/",
+                    )
+                    r.raise_for_status()
+                except exceptions.RequestException as e:
+                    module.fail_json(msg="VLAN RemoveFailed: {}".format(str(e)))
+
+                new_vlans_dict = {
+                    item["name"]: item
+                    for item in get_maas_vlans(session, module.params)
+                }
+
+                res["diff"] = dict(
+                    before=safe_dump(current_vlans),
+                    after=safe_dump(new_vlans_dict),
+                )
+
+    res["message"] = "Removed vlans " + str(vlist)
 
 
 def run_module():
@@ -156,11 +233,7 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
 
-    r = grab_maas_apikey(
-        module.params["site"], module.params["username"], module.params["password"]
-    )
-    r.raise_for_status()
-
+    r = grab_maas_apikey(module)
     c = maas_api_cred(r.json())
 
     maas_session = OAuth1Session(
@@ -174,71 +247,11 @@ def run_module():
         item["name"]: item for item in get_maas_vlans(maas_session, module.params)
     }
 
-    vlist = []
-
     if module.params["state"] == "present":
-        for vlan in module.params["vlans"]:
-            if str(vlan["name"]) not in current_vlans_dict.keys():
-                vlist.append(vlan["name"])
-                result["changed"] = True
-
-                if not module.check_mode:
-                    # Create a new vlan
-                    payload = {
-                        "name": vlan["name"],
-                        "vid": vlan["name"],
-                        "fabric_id": "0",
-                    }
-                    r = maas_session.post(
-                        module.params["site"] + "/api/2.0/fabrics/0/vlans/",
-                        data=payload,
-                    )
-                    r.raise_for_status()
-
-                    new_vlans_dict = {
-                        item["name"]: item
-                        for item in get_maas_vlans(maas_session, module.params)
-                    }
-
-                    result["diff"] = dict(
-                        before=safe_dump(current_vlans_dict),
-                        after=safe_dump(new_vlans_dict),
-                    )
-
-            result["message"] = "Added vlans " + str(vlist)
+        maas_add_vlans(maas_session, current_vlans_dict, module, result)
 
     elif module.params["state"] == "absent":
-        for vlan in module.params["vlans"]:
-            if str(vlan["name"]) in current_vlans_dict.keys():
-                vlist.append(vlan["name"])
-                result["changed"] = True
-
-                if not module.check_mode:
-                    # Create a new vlan
-                    payload = {
-                        "name": vlan["name"],
-                        "vid": vlan["name"],
-                        "fabric_id": "0",
-                    }
-                    r = maas_session.delete(
-                        module.params["site"]
-                        + "/api/2.0/fabrics/0/vlans/"
-                        + vlan["name"]
-                        + "/",
-                    )
-                    r.raise_for_status()
-
-                    new_vlans_dict = {
-                        item["name"]: item
-                        for item in get_maas_vlans(maas_session, module.params)
-                    }
-
-                    result["diff"] = dict(
-                        before=safe_dump(current_vlans_dict),
-                        after=safe_dump(new_vlans_dict),
-                    )
-
-            result["message"] = "Removed vlans " + str(vlist)
+        maas_delete_vlans(maas_session, current_vlans_dict, module, result)
 
     # during the execution of the module, if there is an exception or a
     # conditional state that effectively causes a failure, run
