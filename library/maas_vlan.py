@@ -106,9 +106,9 @@ class maas_api_cred:
         self.resource_owner_secret = self.token_secret
 
 
-def get_maas_vlans(session, params):
+def get_maas_vlans(session, module):
     try:
-        current_vlans = session.get(f"{params['site']}/api/2.0/fabrics/0/vlans/")
+        current_vlans = session.get(f"{module.params['site']}/api/2.0/fabrics/0/vlans/")
         current_vlans.raise_for_status()
         return current_vlans.json()
     except exceptions.RequestException as e:
@@ -159,8 +159,7 @@ def maas_add_vlans(session, current_vlans, module, res):
                     module.fail_json(msg="VLAN Add Failed: {}".format(str(e)))
 
                 new_vlans_dict = {
-                    item["name"]: item
-                    for item in get_maas_vlans(session, module.params)
+                    item["name"]: item for item in get_maas_vlans(session, module)
                 }
 
                 res["diff"] = dict(
@@ -189,8 +188,7 @@ def maas_delete_vlans(session, current_vlans, module, res):
                     module.fail_json(msg="VLAN Remove Failed: {}".format(str(e)))
 
                 new_vlans_dict = {
-                    item["name"]: item
-                    for item in get_maas_vlans(session, module.params)
+                    item["name"]: item for item in get_maas_vlans(session, module)
                 }
 
                 res["diff"] = dict(
@@ -225,7 +223,7 @@ def run_module():
     )
 
     current_vlans_dict = {
-        item["name"]: item for item in get_maas_vlans(maas_session, module.params)
+        item["name"]: item for item in get_maas_vlans(maas_session, module)
     }
 
     if module.params["state"] == "present":
