@@ -6,6 +6,6 @@
       maas_vlan:
         username: "{{ maas_username }}"
         password: "{{ maas_password }}"
-        configs: "{{ maas_configs }}"
+        vlans: "{{ maas_configs['vlans'] }}"
         site: "{{ maas_site }}"
       delegate_to: localhost
