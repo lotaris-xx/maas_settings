@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Demonstrate operating on MAAS VLANs
+  hosts: all
   gather_facts: false
   tasks:
     - name: Perform VLAN operation
