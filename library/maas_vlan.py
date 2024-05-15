@@ -22,10 +22,6 @@ version_added: "1.0.0"
 description: Configure MAAS vlans
 
 options:
-    vlans:
-        description: A list containing vlan specifier dictionaries
-        required: true
-        type: list
     password:
         description: Password for username used to get API token
         required: true
@@ -34,10 +30,28 @@ options:
         description: URL of the MAAS site (generally ending in /MAAS)
         required: true
         type: str
+    state:
+        description: A list containing vlan specifier dictionaries
+        required: false
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
     username:
         description: Username to get API token for
         required: true
         type: str
+    vlans:
+        description: A list containing vlan specifier dictionaries
+        required: true
+        type: list
+        suboptions:
+          name:
+              description: The name of the vlan
+              required: true
+              type: dict
+
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
@@ -49,11 +63,19 @@ author:
 """
 
 EXAMPLES = r"""
-# Pass in a message
+# Add 3 vlans if they don't exist
 -  username: user
    password: password
    vlans:
      - name: 100
+     - name: 200
+     - name: 300
+
+# Remove two vlans if they exist
+-  username: user
+   password: password
+   state: absent
+   vlans:
      - name: 200
      - name: 300
 """
@@ -61,10 +83,9 @@ EXAMPLES = r"""
 RETURN = r"""
 # These are examples of possible return values, and in general should use other names for return values.
 message:
-    description: The output message that the test module generates.
+    description: A status message from the module
     type: str
     returned: always
-    sample: 'goodbye'
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -112,6 +133,7 @@ def run_module():
         password=dict(type="str", required=True, no_log=True),
         username=dict(type="str", required=True),
         site=dict(type="str", required=True),
+        state=dict(type="str", required=False, default="present"),
     )
 
     # seed the result dict in the object
@@ -154,37 +176,69 @@ def run_module():
 
     vlist = []
 
-    result["message"] = module.params["vlans"]
+    if module.params["state"] == "present":
+        for vlan in module.params["vlans"]:
+            if str(vlan["name"]) not in current_vlans_dict.keys():
+                vlist.append(vlan["name"])
+                result["changed"] = True
 
-    for vlan in module.params["vlans"]:
-        if str(vlan["name"]) not in current_vlans_dict.keys():
-            vlist.append(vlan["name"])
-            result["changed"] = True
+                if not module.check_mode:
+                    # Create a new vlan
+                    payload = {
+                        "name": vlan["name"],
+                        "vid": vlan["name"],
+                        "fabric_id": "0",
+                    }
+                    r = maas_session.post(
+                        module.params["site"] + "/api/2.0/fabrics/0/vlans/",
+                        data=payload,
+                    )
+                    r.raise_for_status()
 
-            if not module.check_mode:
-                # Create a new vlan
-                payload = {
-                    "name": vlan["name"],
-                    "vid": vlan["name"],
-                    "fabric_id": "0",
-                }
-                r = maas_session.post(
-                    module.params["site"] + "/api/2.0/fabrics/0/vlans/",
-                    data=payload,
-                )
-                r.raise_for_status()
+                    new_vlans_dict = {
+                        item["name"]: item
+                        for item in get_maas_vlans(maas_session, module.params)
+                    }
 
-                new_vlans_dict = {
-                    item["name"]: item
-                    for item in get_maas_vlans(maas_session, module.params)
-                }
+                    result["diff"] = dict(
+                        before=safe_dump(current_vlans_dict),
+                        after=safe_dump(new_vlans_dict),
+                    )
 
-                result["diff"] = dict(
-                    before=safe_dump(current_vlans_dict),
-                    after=safe_dump(new_vlans_dict),
-                )
+            result["message"] = "Added vlans " + str(vlist)
 
-        result["message"] = "Added vlans " + str(vlist)
+    elif module.params["state"] == "absent":
+        for vlan in module.params["vlans"]:
+            if str(vlan["name"]) in current_vlans_dict.keys():
+                vlist.append(vlan["name"])
+                result["changed"] = True
+
+                if not module.check_mode:
+                    # Create a new vlan
+                    payload = {
+                        "name": vlan["name"],
+                        "vid": vlan["name"],
+                        "fabric_id": "0",
+                    }
+                    r = maas_session.delete(
+                        module.params["site"]
+                        + "/api/2.0/fabrics/0/vlans/"
+                        + vlan["name"]
+                        + "/",
+                    )
+                    r.raise_for_status()
+
+                    new_vlans_dict = {
+                        item["name"]: item
+                        for item in get_maas_vlans(maas_session, module.params)
+                    }
+
+                    result["diff"] = dict(
+                        before=safe_dump(current_vlans_dict),
+                        after=safe_dump(new_vlans_dict),
+                    )
+
+            result["message"] = "Removed vlans " + str(vlist)
 
     # during the execution of the module, if there is an exception or a
     # conditional state that effectively causes a failure, run

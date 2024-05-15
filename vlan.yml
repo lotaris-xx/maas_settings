@@ -2,10 +2,11 @@
 - hosts: all
   gather_facts: false
   tasks:
-    - name: Set maas vlans
+    - name: Perform VLAN operation
       maas_vlan:
         username: "{{ maas_username }}"
         password: "{{ maas_password }}"
         vlans: "{{ maas_configs['vlans'] }}"
         site: "{{ maas_site }}"
+        state: "{{ vlan_state }}"
       delegate_to: localhost
