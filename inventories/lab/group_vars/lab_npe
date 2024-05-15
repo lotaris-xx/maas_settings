@@ -1,4 +1,11 @@
 ---
 maas_configs_env:
+  subnets:
+    - name: "10.1.3.0/24"
+      description: "Ops Testing"
+      vid: "300"
+      cidr: "10.1.3.0/24"
+      gateway_ip: "10.1.3.1"
+      dns_servers: "10.1.0.53"
   vlans:
     - name: "300"
