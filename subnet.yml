@@ -1,0 +1,15 @@
+---
+- name: Demonstrate operating on MAAS subnets
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Perform subnet operation
+      maas_subnet:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        subnets:
+          - maas_configs['untagged_subnets']
+          - maas_configs['subnets']
+        site: "{{ maas_site }}"
+        state: "{{ subnet_state| default(omit) }}"
+      delegate_to: localhost
