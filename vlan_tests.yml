@@ -1,0 +1,69 @@
+---
+- name: Demonstrate operating on MAAS VLANs
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Add two VLANS
+      maas_vlan:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        vlans: "{{ vlans }}"
+        site: "{{ maas_site }}"
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: First VLAN 100
+            vid: 100
+          - name: 200
+
+    - name: Remove one
+      maas_vlan:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        vlans: "{{ vlans }}"
+        site: "{{ maas_site }}"
+        state: absent
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 200
+
+    - name: Try and add two with the same VID
+      maas_vlan:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        vlans: "{{ vlans }}"
+        site: "{{ maas_site }}"
+      ignore_errors: true
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 100
+          - name: Another VLAN
+            vid: 100
+
+    - name: Try and use a parameter we don't support
+      maas_vlan:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}"
+        vlans: "{{ vlans }}"
+        site: "{{ maas_site }}"
+      ignore_errors: true
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 300
+            fabric_id: 2
+
+    - name: Try and use an incorrect password
+      maas_vlan:
+        username: "{{ maas_username }}"
+        password: "{{ maas_password }}+"
+        vlans: "{{ vlans }}"
+        site: "{{ maas_site }}"
+      ignore_errors: true
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 300
+

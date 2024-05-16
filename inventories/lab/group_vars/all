@@ -1,0 +1,37 @@
+maas_username: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          38306265616339303461643132656363626430393432646130623337303638396431386137663332
+          6437323066363739376535303833366466626266303564390a316434633737393731636637643666
+          63393931363232653639636663663735656230383938363138376230313639643664653561313964
+          3934656562616330380a396432636637623433373537383836333066363061376432316166323330
+          3739
+maas_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          38636239656634303338383462326330663564636565613761666665646637646339303132636533
+          3838636363383138386237386239393264646563633762360a613238313966623239646663346631
+          33656535663464386230663266346631363730653763616166633737366266386633666235393062
+          6666653032386232650a623839383161356339313535643164363735623331336364323062336335
+          3264
+maas_site: "http://maas1.internal.lotaris.org:5240/MAAS"
+
+dns_server: 10.66.0.1
+
+maas_configs_global:
+  untagged_subnets:
+    - subnet_name: "192.168.10.0/24"
+      cidr: "192.168.10.0/24"
+      dns_servers: "192.168.0.53"
+    - subnet_name: "NMS - 192.0.45.0/24"
+      cidr: "192.0.45.0/24"
+      dns_servers: "192.0.0.53"
+  vlans:
+    - name: VLAN 100
+      mtu: 9000
+      vid: 100
+
+maas_configs: |
+    {{ maas_configs_global | combine(maas_configs_dc |default({}), list_merge='append_rp', recursive=true) |
+       combine(maas_configs_env  |default({}), list_merge='append_rp', recursive=true) |
+       combine(maas_configs_pod  |default({}), list_merge='append_rp', recursive=true) |
+       combine(maas_configs_host |default({}), list_merge='append_rp', recursive=true)
+    }}
