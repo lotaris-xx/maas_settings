@@ -4,6 +4,7 @@
 # License: MIT-0 (See https://opensource.org/license/mit-0)
 from __future__ import absolute_import, division, print_function
 
+from collections import Counter
 from requests import post, exceptions
 from requests_oauthlib import OAuth1Session
 from yaml import safe_dump
@@ -165,14 +166,15 @@ def maas_add_vlans(session, current_vlans, module, res):
     vlist = []
 
     for vlan in module.params["vlans"]:
-        if str(vlan["name"]) not in current_vlans.keys():
+        fabric_id = int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else "0"
+        mtu = int(vlan["mtu"]) if "mtu" in vlan.keys() else "1500"
+        vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
+
+        if vid not in current_vlans.keys():
             vlist.append(vlan["name"])
             res["changed"] = True
 
             if not module.check_mode:
-                fabric_id = vlan["fabric_id"] if "fabric_id" in vlan.keys() else "0"
-                mtu = vlan["mtu"] if "mtu" in vlan.keys() else "1500"
-                vid = vlan["vid"] if "vid" in vlan.keys() else vlan["name"]
                 payload = {
                     "mtu": mtu,
                     "name": vlan["name"],
@@ -186,10 +188,12 @@ def maas_add_vlans(session, current_vlans, module, res):
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
-                    module.fail_json(msg="VLAN Add Failed: {}".format(str(e)))
+                    module.fail_json(
+                        msg=f"VLAN Add Failed: {format(str(e))} with payload {format(payload)} and {format(current_vlans)}"
+                    )
 
                 new_vlans_dict = {
-                    item["name"]: item for item in get_maas_vlans(session, module)
+                    item["vid"]: item for item in get_maas_vlans(session, module)
                 }
 
                 res["diff"] = dict(
@@ -204,23 +208,26 @@ def maas_delete_vlans(session, current_vlans, module, res):
     vlist = []
 
     for vlan in module.params["vlans"]:
-        if str(vlan["name"]) in current_vlans.keys():
+        fabric_id = int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else 0
+        vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
+
+        if vid in current_vlans.keys():
             vlist.append(vlan["name"])
             res["changed"] = True
 
             if not module.check_mode:
                 try:
-                    fabric_id = vlan["fabric_id"] if "fabric_id" in vlan.keys() else "0"
-                    vid = vlan["vid"] if "vid" in vlan.keys() else vlan["name"]
                     r = session.delete(
                         f"{module.params['site']}/api/2.0/fabrics/{fabric_id}/vlans/{vid}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
-                    module.fail_json(msg="VLAN Remove Failed: {}".format(str(e)))
+                    module.fail_json(
+                        msg=f"VLAN Remove Failed: {format(str(e))} with {format(current_vlans)}"
+                    )
 
                 new_vlans_dict = {
-                    item["name"]: item for item in get_maas_vlans(session, module)
+                    item["vid"]: item for item in get_maas_vlans(session, module)
                 }
 
                 res["diff"] = dict(
@@ -259,7 +266,7 @@ def run_module():
     )
 
     current_vlans_dict = {
-        item["name"]: item for item in get_maas_vlans(maas_session, module)
+        item["vid"]: item for item in get_maas_vlans(maas_session, module)
     }
 
     if module.params["state"] == "present":
@@ -275,8 +282,17 @@ def validate_module_parameters(module):
     """
     Perform simple validations on module parameters
     """
+    vlans = module.params["vlans"]
 
-    for vlan in module.params["vlans"]:
+    vid_list = [vlan["vid"] if "vid" in vlan.keys() else vlan["name"] for vlan in vlans]
+    vid_list_set = set(vid_list)
+    if len(vid_list) != len(vid_list_set):
+        vlan_dupes = [item for item, count in Counter(vid_list).items() if count > 1]
+        module.fail_json(
+            f"msg=Duplicate vids handed to us in list of VLANs. Dupes are {vlan_dupes} from: {vlans}"
+        )
+
+    for vlan in vlans:
         for key in vlan.keys():
             if key not in vlan_supported_keys:
                 module.fail_json(

@@ -1,4 +1,5 @@
 ---
 maas_configs_host:
   vlans:
-    - name: "200"
+    - name: "Host VLAN 1000"
+      vid: "1000"
