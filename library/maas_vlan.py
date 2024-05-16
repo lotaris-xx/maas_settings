@@ -31,7 +31,7 @@ options:
         required: true
         type: str
     state:
-        description: A list containing vlan specifier dictionaries
+        description: The state we desire for the list of VLANs given
         required: false
         type: str
         default: present
