@@ -47,11 +47,6 @@ options:
         required: true
         type: list
         suboptions:
-          fabric_id:
-              description: Fabric ID
-              required: false
-              default: 0
-              type: str
           mtu:
               description: The MTU of the vlan
               required: false
@@ -127,6 +122,10 @@ class maas_api_cred:
 
 
 def get_maas_vlans(session, module):
+    """
+    Grab the current list of VLANs
+    NOTE: We really only support fabric 0 at this time so it is hard coded.
+    """
     try:
         filtered_vlans = []
         current_vlans = session.get(f"{module.params['site']}/api/2.0/fabrics/0/vlans/")
@@ -143,6 +142,9 @@ def get_maas_vlans(session, module):
 
 
 def grab_maas_apikey(module):
+    """
+    Connect to MAAS API and grab the 3 part API key
+    """
     consumer = "ansible@host"
     uri = "/accounts/authenticate/"
     site = module.params["site"]
@@ -163,6 +165,9 @@ def grab_maas_apikey(module):
 
 
 def maas_add_vlans(session, current_vlans, module, res):
+    """
+    Given a list of VLANs to add, we add those that don't exist
+    """
     vlist = []
 
     for vlan in module.params["vlans"]:
@@ -205,6 +210,9 @@ def maas_add_vlans(session, current_vlans, module, res):
 
 
 def maas_delete_vlans(session, current_vlans, module, res):
+    """
+    Given a list of VLANs to remove, we delete those that exist"
+    """
     vlist = []
 
     for vlan in module.params["vlans"]:
@@ -251,7 +259,7 @@ def run_module():
 
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
 
-    globals()["vlan_supported_keys"] = ["fabric_id", "mtu", "name", "vid"]
+    globals()["vlan_supported_keys"] = ["mtu", "name", "vid"]
 
     validate_module_parameters(module)
 
