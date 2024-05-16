@@ -46,11 +46,30 @@ options:
         required: true
         type: list
         suboptions:
+          fabric_id:
+              description: Fabric ID
+              required: false
+              default: 0
+              type: str
+          mtu:
+              description: The MTU of the vlan
+              required: false
+              default: 1500
+              type: str
           name:
               description: The name of the vlan
               required: true
-              type: dict
+              type: str
+          vid:
+              description: VLAN ID (defaults to O(name))
+              required: false
+              default: O(name)
+              type: str
 
+notes:
+   - The API accepts more options for O(vlans) list members
+     however only those mentioned are supported by this
+     module.
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
@@ -108,11 +127,18 @@ class maas_api_cred:
 
 def get_maas_vlans(session, module):
     try:
+        filtered_vlans = []
         current_vlans = session.get(f"{module.params['site']}/api/2.0/fabrics/0/vlans/")
         current_vlans.raise_for_status()
-        return current_vlans.json()
+
+        # filter the list down to keys we support
+        for vlan in current_vlans.json():
+            filtered_vlans.append(
+                {k: v for k, v in vlan.items() if k in vlan_supported_keys}
+            )
+        return filtered_vlans
     except exceptions.RequestException as e:
-        module.fail_json(msg="get_maas_vlans failed: {}".format(str(e)))
+        module.fail_json(msg="Failed to get current VLAN list: {}".format(str(e)))
 
 
 def grab_maas_apikey(module):
@@ -144,14 +170,18 @@ def maas_add_vlans(session, current_vlans, module, res):
             res["changed"] = True
 
             if not module.check_mode:
+                fabric_id = vlan["fabric_id"] if "fabric_id" in vlan.keys() else "0"
+                mtu = vlan["mtu"] if "mtu" in vlan.keys() else "1500"
+                vid = vlan["vid"] if "vid" in vlan.keys() else vlan["name"]
                 payload = {
+                    "mtu": mtu,
                     "name": vlan["name"],
-                    "vid": vlan["name"],
-                    "fabric_id": "0",
+                    "vid": vid,
+                    "fabric_id": fabric_id,
                 }
                 try:
                     r = session.post(
-                        f"{module.params['site']}/api/2.0/fabrics/0/vlans/",
+                        f"{module.params['site']}/api/2.0/fabrics/{fabric_id}/vlans/",
                         data=payload,
                     )
                     r.raise_for_status()
@@ -180,8 +210,10 @@ def maas_delete_vlans(session, current_vlans, module, res):
 
             if not module.check_mode:
                 try:
+                    fabric_id = vlan["fabric_id"] if "fabric_id" in vlan.keys() else "0"
+                    vid = vlan["vid"] if "vid" in vlan.keys() else vlan["name"]
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/fabrics/0/vlans/{vlan['name']}/",
+                        f"{module.params['site']}/api/2.0/fabrics/{fabric_id}/vlans/{vid}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -212,6 +244,10 @@ def run_module():
 
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
 
+    globals()["vlan_supported_keys"] = ["fabric_id", "mtu", "name", "vid"]
+
+    validate_module_parameters(module)
+
     r = grab_maas_apikey(module)
     c = maas_api_cred(r.json())
 
@@ -233,6 +269,19 @@ def run_module():
         maas_delete_vlans(maas_session, current_vlans_dict, module, result)
 
     module.exit_json(**result)
+
+
+def validate_module_parameters(module):
+    """
+    Perform simple validations on module parameters
+    """
+
+    for vlan in module.params["vlans"]:
+        for key in vlan.keys():
+            if key not in vlan_supported_keys:
+                module.fail_json(
+                    f"msg={key} is not in supported keys. Possible values {vlan_supported_keys}"
+                )
 
 
 def main():
