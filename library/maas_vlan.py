@@ -3,11 +3,24 @@
 # Copyright: Allen Smith <asmith687@t-mobile.com>
 # License: MIT-0 (See https://opensource.org/license/mit-0)
 from __future__ import absolute_import, division, print_function
+from ansible.module_utils.basic import missing_required_lib
 
 from collections import Counter
-from requests import post, exceptions
-from requests_oauthlib import OAuth1Session
 from yaml import safe_dump
+
+try:
+    from requests import post, exceptions
+
+    HAS_REQUESTS = True
+except:
+    HAS_REQUESTS = False
+
+try:
+    from requests_oauthlib import OAuth1Session
+
+    HAS_REQUESTS_OAUTHLIB = True
+except:
+    HAS_REQUESTS_OAUTHLIB = False
 
 __metaclass__ = type
 
@@ -66,6 +79,10 @@ notes:
    - The API accepts more options for O(vlans) list members
      however only those mentioned are supported by this
      module.
+
+requirements:
+   - requests
+   - requests-oauthlib
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
@@ -258,6 +275,12 @@ def run_module():
     result = dict(changed=False, message={}, diff={})
 
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg=missing_required_lib("requests"))
+
+    if not HAS_REQUESTS_OAUTHLIB:
+        module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
     globals()["vlan_supported_keys"] = ["mtu", "name", "vid"]
 
