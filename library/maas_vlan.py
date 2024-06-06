@@ -112,7 +112,6 @@ EXAMPLES = r"""
 """
 
 RETURN = r"""
-# These are examples of possible return values, and in general should use other names for return values.
 message:
     description: A status message from the module
     type: str
