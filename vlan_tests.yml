@@ -50,6 +50,7 @@
 
     - name: Try and use an incorrect password
       maas_vlan:
+        password: "{{ maas_password }}+"
         vlans: "{{ vlans }}"
       ignore_errors: true
       delegate_to: localhost
