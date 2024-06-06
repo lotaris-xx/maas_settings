@@ -2,13 +2,15 @@
 - name: Demonstrate operating on MAAS VLANs
   hosts: all
   gather_facts: false
+  module_defaults:
+    maas_vlan:
+      username: "{{ maas_username }}"
+      password: "{{ maas_password }}"
+      site: "{{ maas_site }}"
   tasks:
     - name: Add two VLANS
       maas_vlan:
-        username: "{{ maas_username }}"
-        password: "{{ maas_password }}"
         vlans: "{{ vlans }}"
-        site: "{{ maas_site }}"
       delegate_to: localhost
       vars:
         vlans:
@@ -18,10 +20,7 @@
 
     - name: Remove one
       maas_vlan:
-        username: "{{ maas_username }}"
-        password: "{{ maas_password }}"
         vlans: "{{ vlans }}"
-        site: "{{ maas_site }}"
         state: absent
       delegate_to: localhost
       vars:
@@ -30,10 +29,7 @@
 
     - name: Try and add two with the same VID
       maas_vlan:
-        username: "{{ maas_username }}"
-        password: "{{ maas_password }}"
         vlans: "{{ vlans }}"
-        site: "{{ maas_site }}"
       ignore_errors: true
       delegate_to: localhost
       vars:
@@ -44,10 +40,7 @@
 
     - name: Try and use a parameter we don't support
       maas_vlan:
-        username: "{{ maas_username }}"
-        password: "{{ maas_password }}"
         vlans: "{{ vlans }}"
-        site: "{{ maas_site }}"
       ignore_errors: true
       delegate_to: localhost
       vars:
@@ -57,13 +50,9 @@
 
     - name: Try and use an incorrect password
       maas_vlan:
-        username: "{{ maas_username }}"
-        password: "{{ maas_password }}+"
         vlans: "{{ vlans }}"
-        site: "{{ maas_site }}"
       ignore_errors: true
       delegate_to: localhost
       vars:
         vlans:
           - name: 300
-
