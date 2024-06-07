@@ -44,13 +44,14 @@ options:
         required: true
         type: str
     state:
-        description: The state we desire for the list of VLANs given
+        description:
+          - if C(absent) then the vlan(s) will be removed if currently present.
+          - if C(present) then the vlan(s) will be created/updated.
+          - if C(exact) then the resulting vlan list will match what is passed in.
         required: false
         type: str
         default: present
-        choices:
-            - absent
-            - present
+        choices: [ absent, present, exact ]
     username:
         description: Username to get API token for
         required: true
@@ -84,13 +85,8 @@ requirements:
    - requests
    - requests-oauthlib
 
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-# extends_documentation_fragment:
-#     - my_namespace.my_collection.my_doc_fragment_name
-
 author:
-    - Allen Smith (@allsmith-tmo)
+    - Allen Smith (@asmith-tmo)
 """
 
 EXAMPLES = r"""
@@ -113,8 +109,8 @@ EXAMPLES = r"""
 
 RETURN = r"""
 message:
-    description: A status message from the module
-    type: str
+    description: Status messages
+    type: list
     returned: always
 """
 
@@ -135,6 +131,22 @@ class maas_api_cred:
         self.client_key = self.consumer_key
         self.resource_owner_key = self.token_key
         self.resource_owner_secret = self.token_secret
+
+
+def vlan_needs_updating(current, wanted):
+    """
+    Compare two vlan definitions and see if there are differences
+    in the fields we allow to be changed
+    """
+    ret = False
+    current_filtered = {k: v for k, v in current.items() if k in vlan_modify_keys}
+    wanted_filtered = {k: v for k, v in wanted.items() if k in vlan_modify_keys}
+
+    for key in current_filtered.keys():
+        if str(current_filtered[key]) != str(wanted_filtered[key]):
+            ret = True
+
+    return ret
 
 
 def get_maas_vlans(session, module):
@@ -180,63 +192,93 @@ def grab_maas_apikey(module):
         module.fail_json(msg="Auth failed: {}".format(str(e)))
 
 
-def maas_add_vlans(session, current_vlans, module, res):
+def maas_add_vlans(session, current_vlans, module_vlans, module, res):
     """
     Given a list of VLANs to add, we add those that don't exist
+    If they exist, we check if something has changed and if it
+    is a parameter that we can update, we call a function to do
+    that.
     """
-    vlist = []
+    vlist_added = []
+    vlist_updated = []
 
-    for vlan in module.params["vlans"]:
-        fabric_id = int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else "0"
-        mtu = int(vlan["mtu"]) if "mtu" in vlan.keys() else "1500"
-        vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
+    for vlan in module_vlans:
+        wanted = {}
+        wanted["name"] = vlan["name"]
+        wanted["fabric_id"] = (
+            int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else "0"
+        )
+        wanted["mtu"] = int(vlan["mtu"]) if "mtu" in vlan.keys() else "1500"
+        wanted["vid"] = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
 
-        if vid not in current_vlans.keys():
-            vlist.append(vlan["name"])
+        if wanted["vid"] not in current_vlans.keys():
+            vlist_added.append(wanted["vid"])
             res["changed"] = True
 
             if not module.check_mode:
                 payload = {
-                    "mtu": mtu,
-                    "name": vlan["name"],
-                    "vid": vid,
-                    "fabric_id": fabric_id,
+                    "mtu": wanted["mtu"],
+                    "name": wanted["name"],
+                    "vid": wanted["vid"],
+                    "fabric_id": wanted["fabric_id"],
                 }
                 try:
                     r = session.post(
-                        f"{module.params['site']}/api/2.0/fabrics/{fabric_id}/vlans/",
+                        f"{module.params['site']}/api/2.0/fabrics/{wanted['fabric_id']}/vlans/",
                         data=payload,
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
                     module.fail_json(
-                        msg=f"VLAN Add Failed: {format(str(e))} with payload {format(payload)} and {format(current_vlans)}"
+                        msg=f"VLAN Add Failed: {format(str(e))} with payload {format(payload)} and {format(wanted)}"
                     )
+        else:
+            if vlan_needs_updating(current_vlans[wanted["vid"]], wanted):
+                vlist_updated.append(wanted["vid"])
+                res["changed"] = True
 
-                new_vlans_dict = {
-                    item["vid"]: item for item in get_maas_vlans(session, module)
-                }
+                if not module.check_mode:
+                    payload = {
+                        "mtu": wanted["mtu"],
+                        "name": wanted["name"],
+                    }
+                    try:
+                        r = session.put(
+                            f"{module.params['site']}/api/2.0/fabrics/{wanted['fabric_id']}/vlans/{wanted['vid']}/",
+                            data=payload,
+                        )
+                        r.raise_for_status()
+                    except exceptions.RequestException as e:
+                        module.fail_json(
+                            msg=f"VLAN Update Failed: {format(str(e))} with payload {format(payload)} and {format(wanted)}"
+                        )
 
-                res["diff"] = dict(
-                    before=safe_dump(current_vlans),
-                    after=safe_dump(new_vlans_dict),
-                )
+    new_vlans_dict = {item["vid"]: item for item in get_maas_vlans(session, module)}
 
-        res["message"] = "Added vlans " + str(vlist)
+    res["diff"] = dict(
+        before=safe_dump(current_vlans),
+        after=safe_dump(new_vlans_dict),
+    )
+
+    if vlist_added:
+        res["message"].append("Added vlans: " + str(vlist_added))
+
+    if vlist_updated:
+        res["message"].append("Updated vlans: " + str(vlist_updated))
 
 
-def maas_delete_vlans(session, current_vlans, module, res):
+def maas_delete_vlans(session, current_vlans, module_vlans, module, res):
     """
     Given a list of VLANs to remove, we delete those that exist"
     """
     vlist = []
 
-    for vlan in module.params["vlans"]:
+    for vlan in module_vlans:
         fabric_id = int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else 0
         vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
 
         if vid in current_vlans.keys():
-            vlist.append(vlan["name"])
+            vlist.append(vid)
             res["changed"] = True
 
             if not module.check_mode:
@@ -259,7 +301,40 @@ def maas_delete_vlans(session, current_vlans, module, res):
                     after=safe_dump(new_vlans_dict),
                 )
 
-    res["message"] = "Removed vlans " + str(vlist)
+    if vlist:
+        res["message"].append("Removed vlans: " + str(vlist))
+
+
+def maas_exact_vlans(session, current_vlans, module_vlans, module, res):
+    """
+    Given a list of VLANs, remove and add/update as needed
+    to make reality match the list
+    """
+    wanted = []
+    wanted_delete = []
+    wanted_add_update = []
+
+    for vlan in module_vlans:
+        vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
+        wanted.append(vid)
+
+    delete_list = [vid for vid in current_vlans.keys() if vid not in wanted]
+    add_list = [vid for vid in wanted if vid not in current_vlans.keys()]
+    update_list = [vid for vid in wanted if vid in current_vlans.keys()]
+
+    delete_list.remove(0)
+
+    if delete_list:
+        wanted_delete = [{"name": k} for k in delete_list]
+        maas_delete_vlans(session, current_vlans, wanted_delete, module, res)
+
+    if add_list:
+        wanted_add = [{"name": k} for k in add_list]
+        maas_add_vlans(session, current_vlans, wanted_add, module, res)
+
+    if update_list:
+        wanted_update = [current_vlans[k] for k in update_list]
+        maas_add_vlans(session, current_vlans, wanted_update, module, res)
 
 
 def run_module():
@@ -271,7 +346,7 @@ def run_module():
         state=dict(type="str", required=False, default="present"),
     )
 
-    result = dict(changed=False, message={}, diff={})
+    result = dict(changed=False, message=[], diff={})
 
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
 
@@ -282,6 +357,7 @@ def run_module():
         module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
     globals()["vlan_supported_keys"] = ["mtu", "name", "vid"]
+    globals()["vlan_modify_keys"] = ["mtu", "name"]
 
     validate_module_parameters(module)
 
@@ -300,10 +376,19 @@ def run_module():
     }
 
     if module.params["state"] == "present":
-        maas_add_vlans(maas_session, current_vlans_dict, module, result)
+        maas_add_vlans(
+            maas_session, current_vlans_dict, module.params["vlans"], module, result
+        )
 
     elif module.params["state"] == "absent":
-        maas_delete_vlans(maas_session, current_vlans_dict, module, result)
+        maas_delete_vlans(
+            maas_session, current_vlans_dict, module.params["vlans"], module, result
+        )
+
+    elif module.params["state"] == "exact":
+        maas_exact_vlans(
+            maas_session, current_vlans_dict, module.params["vlans"], module, result
+        )
 
     module.exit_json(**result)
 
