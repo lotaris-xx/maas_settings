@@ -36,6 +36,26 @@
         vlans:
           - name: 200
 
+    - name: Set an exact list
+      maas_vlan:
+        vlans: "{{ vlans }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 400
+          - name: 500
+
+    - name: Set a difference exact list
+      maas_vlan:
+        vlans: "{{ vlans }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 200
+          - name: 300
+
     - name: Try and add two with the same VID
       maas_vlan:
         vlans: "{{ vlans }}"
