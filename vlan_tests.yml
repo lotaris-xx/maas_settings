@@ -43,7 +43,8 @@
       delegate_to: localhost
       vars:
         vlans:
-          - name: 400
+          - name: VLAN 400
+            vid: 400
           - name: 500
 
     - name: Set a difference exact list
@@ -55,6 +56,8 @@
         vlans:
           - name: 200
           - name: 300
+          - name: Renamed VLAN 400
+            vid: 400
 
     - name: Try and add two with the same VID
       maas_vlan:

@@ -315,9 +315,10 @@ def maas_exact_vlans(session, current_vlans, module_vlans, module, res):
     wanted_add_update = []
 
     for vlan in module_vlans:
-        vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
-        wanted.append(vid)
+        vlan["vid"] = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
+        wanted.append(vlan["vid"])
 
+    module_vlans_dict = {k["vid"]: k for k in module_vlans}
     delete_list = [vid for vid in current_vlans.keys() if vid not in wanted]
     add_list = [vid for vid in wanted if vid not in current_vlans.keys()]
     update_list = [vid for vid in wanted if vid in current_vlans.keys()]
@@ -329,11 +330,11 @@ def maas_exact_vlans(session, current_vlans, module_vlans, module, res):
         maas_delete_vlans(session, current_vlans, wanted_delete, module, res)
 
     if add_list:
-        wanted_add = [{"name": k} for k in add_list]
+        wanted_add = [module_vlans_dict[k] for k in add_list]
         maas_add_vlans(session, current_vlans, wanted_add, module, res)
 
     if update_list:
-        wanted_update = [current_vlans[k] for k in update_list]
+        wanted_update = [module_vlans_dict[k] for k in update_list]
         maas_add_vlans(session, current_vlans, wanted_update, module, res)
 
 
