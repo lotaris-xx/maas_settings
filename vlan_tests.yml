@@ -81,6 +81,16 @@
           - name: Another VLAN
             vid: 100
 
+    - name: Try and change a VID
+      maas_vlan:
+        vlans: "{{ vlans }}"
+      ignore_errors: true
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: 300
+            vid: 301
+
     - name: Try and use a parameter we don't support
       maas_vlan:
         vlans: "{{ vlans }}"

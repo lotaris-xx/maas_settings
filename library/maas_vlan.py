@@ -225,6 +225,11 @@ def maas_add_vlans(session, current_vlans, module_vlans, module, res):
         wanted["vid"] = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
 
         if wanted["vid"] not in current_vlans.keys():
+            if wanted["name"] in current_vlans.keys():
+                module.fail_json(
+                    msg=f"Can't change vid for VLAN {wanted['name']} from {current_vlans[wanted['name']]['vid']} to {wanted['vid']}"
+                )
+
             vlist_added.append(wanted["vid"])
             res["changed"] = True
 
