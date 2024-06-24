@@ -59,6 +59,17 @@
           - name: Renamed VLAN 400
             vid: 400
 
+    - name: Invalid VID
+      maas_vlan:
+        vlans: "{{ vlans }}"
+      ignore_errors: true
+      delegate_to: localhost
+      vars:
+        vlans:
+          - name: vlan100
+          - name: vlan4096
+            vid: 4096
+
     - name: Try and add two with the same VID
       maas_vlan:
         vlans: "{{ vlans }}"
