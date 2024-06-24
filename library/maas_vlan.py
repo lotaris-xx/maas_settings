@@ -22,6 +22,9 @@ try:
 except:
     HAS_REQUESTS_OAUTHLIB = False
 
+VLAN_SUPPORTED_KEYS = ["mtu", "name", "vid"]
+VLAN_MODIFY_KEYS = ["mtu", "name"]
+
 __metaclass__ = type
 
 DOCUMENTATION = r"""
@@ -105,6 +108,16 @@ EXAMPLES = r"""
    vlans:
      - name: 200
      - name: 300
+
+# Add/Remove as needed to exactly match given list
+-  username: user
+   password: password
+   state: exact
+   vlans:
+     - name: 400
+     - name: VLAN 500
+       vid: 500
+
 """
 
 RETURN = r"""
@@ -139,11 +152,13 @@ def vlan_needs_updating(current, wanted):
     in the fields we allow to be changed
     """
     ret = False
-    current_filtered = {k: v for k, v in current.items() if k in vlan_modify_keys}
-    wanted_filtered = {k: v for k, v in wanted.items() if k in vlan_modify_keys}
+    current_filtered = {k: v for k, v in current.items() if k in VLAN_MODIFY_KEYS}
+    wanted_filtered = {k: v for k, v in wanted.items() if k in VLAN_MODIFY_KEYS}
 
-    for key in current_filtered.keys():
-        if str(current_filtered[key]) != str(wanted_filtered[key]):
+    for key in wanted_filtered.keys():
+        if (key not in current_filtered.keys()) or (
+            str(wanted_filtered[key]) != str(current_filtered[key])
+        ):
             ret = True
 
     return ret
@@ -152,7 +167,7 @@ def vlan_needs_updating(current, wanted):
 def get_maas_vlans(session, module):
     """
     Grab the current list of VLANs
-    NOTE: We really only support fabric 0 at this time so it is hard coded.
+    NOTE: We only support fabric 0 at this time so it is hard coded.
     """
     try:
         filtered_vlans = []
@@ -162,7 +177,7 @@ def get_maas_vlans(session, module):
         # filter the list down to keys we support
         for vlan in current_vlans.json():
             filtered_vlans.append(
-                {k: v for k, v in vlan.items() if k in vlan_supported_keys}
+                {k: v for k, v in vlan.items() if k in VLAN_SUPPORTED_KEYS}
             )
         return filtered_vlans
     except exceptions.RequestException as e:
@@ -205,10 +220,8 @@ def maas_add_vlans(session, current_vlans, module_vlans, module, res):
     for vlan in module_vlans:
         wanted = {}
         wanted["name"] = vlan["name"]
-        wanted["fabric_id"] = (
-            int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else "0"
-        )
-        wanted["mtu"] = int(vlan["mtu"]) if "mtu" in vlan.keys() else "1500"
+        wanted["fabric_id"] = 0
+        wanted["mtu"] = int(vlan["mtu"]) if "mtu" in vlan.keys() else 1500
         wanted["vid"] = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
 
         if wanted["vid"] not in current_vlans.keys():
@@ -274,7 +287,7 @@ def maas_delete_vlans(session, current_vlans, module_vlans, module, res):
     vlist = []
 
     for vlan in module_vlans:
-        fabric_id = int(vlan["fabric_id"]) if "fabric_id" in vlan.keys() else 0
+        fabric_id = 0
         vid = int(vlan["vid"]) if "vid" in vlan.keys() else int(vlan["name"])
 
         if vid in current_vlans.keys():
@@ -357,18 +370,15 @@ def run_module():
     if not HAS_REQUESTS_OAUTHLIB:
         module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
-    globals()["vlan_supported_keys"] = ["mtu", "name", "vid"]
-    globals()["vlan_modify_keys"] = ["mtu", "name"]
-
     validate_module_parameters(module)
 
-    r = grab_maas_apikey(module)
-    c = maas_api_cred(r.json())
+    response = grab_maas_apikey(module)
+    api_cred = maas_api_cred(response.json())
 
     maas_session = OAuth1Session(
-        c.client_key,
-        resource_owner_key=c.resource_owner_key,
-        resource_owner_secret=c.resource_owner_secret,
+        api_cred.client_key,
+        resource_owner_key=api_cred.resource_owner_key,
+        resource_owner_secret=api_cred.resource_owner_secret,
         signature_method="PLAINTEXT",
     )
 
@@ -400,19 +410,27 @@ def validate_module_parameters(module):
     """
     vlans = module.params["vlans"]
 
+    # Detect duplice vids
     vid_list = [vlan["vid"] if "vid" in vlan.keys() else vlan["name"] for vlan in vlans]
-    vid_list_set = set(vid_list)
-    if len(vid_list) != len(vid_list_set):
+    if len(vid_list) != len(set(vid_list)):
         vlan_dupes = [item for item, count in Counter(vid_list).items() if count > 1]
         module.fail_json(
-            f"msg=Duplicate vids handed to us in list of VLANs. Dupes are {vlan_dupes} from: {vlans}"
+            msg=f"Duplicate vids handed to us in list of VLANs. Dupes are {vlan_dupes} from: {vlans}"
         )
 
+    # Detect invalid vids
+    invalid_vid_list = [
+        vid for vid in vid_list if not type(vid) is int or (vid < 1 or vid > 4094)
+    ]
+    if len(invalid_vid_list):
+        module.fail_json(msg=f"Invalid VIDs detected {invalid_vid_list} from: {vlans}")
+
+    # Detect keys we don't yet handle
     for vlan in vlans:
         for key in vlan.keys():
-            if key not in vlan_supported_keys:
+            if key not in VLAN_SUPPORTED_KEYS:
                 module.fail_json(
-                    f"msg={key} is not in supported keys. Possible values {vlan_supported_keys}"
+                    msg=f"{key} is not a supported key. Possible values {VLAN_SUPPORTED_KEYS}"
                 )
 
 
