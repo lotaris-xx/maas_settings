@@ -29,7 +29,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: maas_vlan
+module: maas_vlans
 
 short_description: Configure MAAS vlans
 

@@ -4,7 +4,7 @@
   gather_facts: false
   tasks:
     - name: Perform VLAN operation
-      maas_vlan:
+      maas_vlans:
         username: "{{ maas_username }}"
         password: "{{ maas_password }}"
         vlans: "{{ maas_configs['vlans'] }}"

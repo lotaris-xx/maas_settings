@@ -3,13 +3,13 @@
   hosts: all
   gather_facts: false
   module_defaults:
-    maas_vlan:
+    maas_vlans:
       username: "{{ maas_username }}"
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
     - name: Add two VLANS
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       delegate_to: localhost
       vars:
@@ -19,7 +19,7 @@
           - name: 200
 
     - name: Modify a vlan
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       delegate_to: localhost
       vars:
@@ -28,7 +28,7 @@
             vid: 100
 
     - name: Remove one
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
         state: absent
       delegate_to: localhost
@@ -37,7 +37,7 @@
           - name: 200
 
     - name: Set an exact list
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
         state: exact
       delegate_to: localhost
@@ -48,7 +48,7 @@
           - name: 500
 
     - name: Set a difference exact list
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
         state: exact
       delegate_to: localhost
@@ -60,7 +60,7 @@
             vid: 400
 
     - name: Invalid VID
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       ignore_errors: true
       delegate_to: localhost
@@ -71,7 +71,7 @@
             vid: 4096
 
     - name: Try and add two with the same VID
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       ignore_errors: true
       delegate_to: localhost
@@ -82,7 +82,7 @@
             vid: 100
 
     - name: Try and change a VID
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       ignore_errors: true
       delegate_to: localhost
@@ -92,7 +92,7 @@
             vid: 301
 
     - name: Try and use a parameter we don't support
-      maas_vlan:
+      maas_vlans:
         vlans: "{{ vlans }}"
       ignore_errors: true
       delegate_to: localhost
@@ -102,7 +102,7 @@
             fabric_id: 2
 
     - name: Try and use an incorrect password
-      maas_vlan:
+      maas_vlans:
         password: "{{ maas_password }}+"
         vlans: "{{ vlans }}"
       ignore_errors: true
