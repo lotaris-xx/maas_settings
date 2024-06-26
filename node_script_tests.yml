@@ -1,0 +1,19 @@
+---
+- name: Demonstrate operating on MAAS VLANs
+  hosts: all
+  gather_facts: false
+  module_defaults:
+    maas_node_scripts:
+      username: "{{ maas_username }}"
+      password: "{{ maas_password }}"
+      site: "{{ maas_site }}"
+  tasks:
+    - name: Add two VLANS
+      maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+      delegate_to: localhost
+      vars:
+        user_scripts:
+          - name: Script 1
+            file: script1.sh
