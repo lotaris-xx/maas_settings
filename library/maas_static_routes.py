@@ -244,6 +244,9 @@ def maas_add_static_routes(
     matching_route = {}
 
     for static_route in module_static_routes:
+        if "metric" not in static_route.keys():
+            static_route["metric"] = 0
+
         if (
             matching_route := lookup_static_route(
                 static_route["destination"], current_static_routes, module
@@ -258,7 +261,7 @@ def maas_add_static_routes(
                     "source": static_route["source"],
                     "destination": static_route["destination"],
                     "gateway_ip": static_route["gateway_ip"],
-                    # "metric": static_route["metric"],
+                    "metric": static_route["metric"],
                 }
                 try:
                     r = session.post(
@@ -276,14 +279,13 @@ def maas_add_static_routes(
                 res["changed"] = True
 
                 # module.fail_json(msg=f"{current_static_routes}")
-                static_route["id"] = current_static_routes[static_route["destination"]][
-                    "id"
-                ]
+                static_route["id"] = matching_route["id"]
+
                 if not module.check_mode:
                     payload = {
                         "source": static_route["source"],
                         "gateway_ip": static_route["gateway_ip"],
-                        # "metric": static_route["metric"],
+                        "metric": static_route["metric"],
                     }
                     try:
                         r = session.put(

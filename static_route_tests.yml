@@ -17,3 +17,25 @@
           - source: 10.66.0.0/16
             destination: 192.168.66.0/24
             gateway_ip: 10.66.0.1
+
+    - name: Add same route with a non-default metric
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+      delegate_to: localhost
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.0.1
+            metric: 1
+
+    - name: Add again with no metric defined (should change back)
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+      delegate_to: localhost
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.0.1
+
