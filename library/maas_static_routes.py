@@ -22,8 +22,8 @@ try:
 except:
     HAS_REQUESTS_OAUTHLIB = False
 
-STATIC_ROUTE_SUPPORTED_KEYS = ["mtu", "name", "vid"]
-STATIC_ROUTE_MODIFY_KEYS = ["mtu", "name"]
+STATIC_ROUTE_SUPPORTED_KEYS = ["source", "destination", "gateway_ip", "metric", "id"]
+STATIC_ROUTE_MODIFY_KEYS = ["source", "gateway_ip", "metric"]
 
 __metaclass__ = type
 
@@ -64,25 +64,26 @@ options:
         required: true
         type: list
         suboptions:
-          mtu:
-              description: The MTU of the static_route
-              required: false
-              default: 1500
-              type: str
-          name:
-              description: The name of the static_route
+          source:
+              description: The CIDR of source network
               required: true
               type: str
-          vid:
-              description: static_route ID (defaults to O(name))
-              required: false
-              default: O(name)
+          destination:
+              description: The CIDR of the dest network
+              required: true
               type: str
+          gateway_ip:
+              description: The gateway IP address
+              required: true
+              type: str
+          metric:
+              description: The weight of the route
+              required: false
+              type: int
 
 notes:
-   - The API accepts more options for O(static_routes) list members
-     however only those mentioned are supported by this
-     module.
+   - The puppet code this is based on keys off the destination (assuming each destination
+     is listed once) so this code does the same.
 
 requirements:
    - requests
@@ -93,31 +94,17 @@ author:
 """
 
 EXAMPLES = r"""
-# Add 3 static_routes if they don't exist
--  username: user
-   password: password
-   static_routes:
-     - name: 100
-     - name: 200
-     - name: 300
-
-# Remove two static_routes if they exist
--  username: user
-   password: password
-   state: absent
-   static_routes:
-     - name: 200
-     - name: 300
-
 # Add/Remove as needed to exactly match given list
 -  username: user
    password: password
    state: exact
    static_routes:
-     - name: 400
-     - name: static_route 500
-       vid: 500
-
+     - source: 10.23.1.0/24
+       destination: 1.2.0.0/16
+       gateway_ip: 10.23.1.1
+     - source: 10.23.1.0/24
+       destination: 192.168.66.0/24
+       gateway_ip: 10.23.1.1
 """
 
 RETURN = r"""
@@ -146,22 +133,31 @@ class maas_api_cred:
         self.resource_owner_secret = self.token_secret
 
 
-def static_route_needs_updating(current, wanted):
+def static_route_needs_updating(current, wanted, module):
     """
     Compare two static_route definitions and see if there are differences
     in the fields we allow to be changed
     """
+
     ret = False
     current_filtered = {
         k: v for k, v in current.items() if k in STATIC_ROUTE_MODIFY_KEYS
     }
     wanted_filtered = {k: v for k, v in wanted.items() if k in STATIC_ROUTE_MODIFY_KEYS}
 
-    for key in wanted_filtered.keys():
-        if (key not in current_filtered.keys()) or (
-            str(wanted_filtered[key]) != str(current_filtered[key])
-        ):
+    # We need to compare manually as source may match name or cidr attributes
+    if "metric" in wanted_filtered.keys():
+        if str(wanted_filtered["metric"]) != str(current_filtered["metric"]):
             ret = True
+
+    if wanted_filtered["gateway_ip"] != current_filtered["gateway_ip"]:
+        ret = True
+
+    if wanted_filtered["source"] not in (
+        current_filtered["source"]["name"],
+        current_filtered["source"]["cidr"],
+    ):
+        ret = True
 
     return ret
 
@@ -169,14 +165,15 @@ def static_route_needs_updating(current, wanted):
 def get_maas_static_routes(session, module):
     """
     Grab the current list of static_routes
-    NOTE: We only support fabric 0 at this time so it is hard coded.
     """
     try:
         filtered_static_routes = []
         current_static_routes = session.get(
-            f"{module.params['site']}/api/2.0/fabrics/0/static_routes/"
+            f"{module.params['site']}/api/2.0/static-routes/"
         )
         current_static_routes.raise_for_status()
+
+        # module.fail_json(msg=f"{current_static_routes.json()}")
 
         # filter the list down to keys we support
         for static_route in current_static_routes.json():
@@ -217,6 +214,22 @@ def grab_maas_apikey(module):
         module.fail_json(msg="Auth failed: {}".format(str(e)))
 
 
+def lookup_static_route(lookup, current_sroutes, module):
+    """
+    Given a lookup return a static route if the lookup
+    matches either the name or cidr property of a current route
+    """
+
+    for item in current_sroutes:
+        if lookup in [
+            current_sroutes[item]["destination"]["name"],
+            current_sroutes[item]["destination"]["cidr"],
+        ]:
+            return current_sroutes[item]
+
+    return None
+
+
 def maas_add_static_routes(
     session, current_static_routes, module_static_routes, module, res
 ):
@@ -226,73 +239,66 @@ def maas_add_static_routes(
     is a parameter that we can update, we call a function to do
     that.
     """
-    vlist_added = []
-    vlist_updated = []
+    sroutelist_added = []
+    sroutelist_updated = []
+    matching_route = {}
 
     for static_route in module_static_routes:
-        wanted = {}
-        wanted["name"] = static_route["name"]
-        wanted["fabric_id"] = 0
-        wanted["mtu"] = (
-            int(static_route["mtu"]) if "mtu" in static_route.keys() else 1500
-        )
-        wanted["vid"] = (
-            int(static_route["vid"])
-            if "vid" in static_route.keys()
-            else int(static_route["name"])
-        )
+        if (
+            matching_route := lookup_static_route(
+                static_route["destination"], current_static_routes, module
+            )
+        ) is None:
 
-        if wanted["vid"] not in current_static_routes.keys():
-            if wanted["name"] in current_static_routes.keys():
-                module.fail_json(
-                    msg=f"Can't change vid for static_route {wanted['name']} from {current_static_routes[wanted['name']]['vid']} to {wanted['vid']}"
-                )
-
-            vlist_added.append(wanted["vid"])
+            sroutelist_added.append(static_route["destination"])
             res["changed"] = True
 
             if not module.check_mode:
                 payload = {
-                    "mtu": wanted["mtu"],
-                    "name": wanted["name"],
-                    "vid": wanted["vid"],
-                    "fabric_id": wanted["fabric_id"],
+                    "source": static_route["source"],
+                    "destination": static_route["destination"],
+                    "gateway_ip": static_route["gateway_ip"],
+                    # "metric": static_route["metric"],
                 }
                 try:
                     r = session.post(
-                        f"{module.params['site']}/api/2.0/fabrics/{wanted['fabric_id']}/static_routes/",
+                        f"{module.params['site']}/api/2.0/static-routes/",
                         data=payload,
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
                     module.fail_json(
-                        msg=f"static_route Add Failed: {format(str(e))} with payload {format(payload)} and {format(wanted)}"
+                        msg=f"static_route Add Failed: {format(str(e))} with payload {format(payload)} and {format(static_route)}"
                     )
         else:
-            if static_route_needs_updating(
-                current_static_routes[wanted["vid"]], wanted
-            ):
-                vlist_updated.append(wanted["vid"])
+            if static_route_needs_updating(matching_route, static_route, module):
+                sroutelist_updated.append(static_route["destination"])
                 res["changed"] = True
 
+                # module.fail_json(msg=f"{current_static_routes}")
+                static_route["id"] = current_static_routes[static_route["destination"]][
+                    "id"
+                ]
                 if not module.check_mode:
                     payload = {
-                        "mtu": wanted["mtu"],
-                        "name": wanted["name"],
+                        "source": static_route["source"],
+                        "gateway_ip": static_route["gateway_ip"],
+                        # "metric": static_route["metric"],
                     }
                     try:
                         r = session.put(
-                            f"{module.params['site']}/api/2.0/fabrics/{wanted['fabric_id']}/static_routes/{wanted['vid']}/",
+                            f"{module.params['site']}/api/2.0/static-routes/{static_route['id']}/",
                             data=payload,
                         )
                         r.raise_for_status()
                     except exceptions.RequestException as e:
                         module.fail_json(
-                            msg=f"static_route Update Failed: {format(str(e))} with payload {format(payload)} and {format(wanted)}"
+                            msg=f"static_route Update Failed: {format(str(e))} with payload {format(payload)} and {format(static_route)}"
                         )
 
     new_static_routes_dict = {
-        item["vid"]: item for item in get_maas_static_routes(session, module)
+        item["destination"]["name"]: item
+        for item in get_maas_static_routes(session, module)
     }
 
     res["diff"] = dict(
@@ -300,11 +306,11 @@ def maas_add_static_routes(
         after=safe_dump(new_static_routes_dict),
     )
 
-    if vlist_added:
-        res["message"].append("Added static_routes: " + str(vlist_added))
+    if sroutelist_added:
+        res["message"].append("Added static_routes: " + str(sroutelist_added))
 
-    if vlist_updated:
-        res["message"].append("Updated static_routes: " + str(vlist_updated))
+    if sroutelist_updated:
+        res["message"].append("Updated static_routes: " + str(sroutelist_updated))
 
 
 def maas_delete_static_routes(
@@ -330,7 +336,7 @@ def maas_delete_static_routes(
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/fabrics/{fabric_id}/static_routes/{vid}/",
+                        f"{module.params['site']}/api/2.0/static-routes/{vid}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -414,7 +420,7 @@ def run_module():
     if not HAS_REQUESTS_OAUTHLIB:
         module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
-    validate_module_parameters(module)
+    # validate_module_parameters(module)
 
     response = grab_maas_apikey(module)
     api_cred = maas_api_cred(response.json())
@@ -426,9 +432,15 @@ def run_module():
         signature_method="PLAINTEXT",
     )
 
+    # We need to key on both of these. Probably more pythonic ways
+    # of doing this.
+
     current_static_routes_dict = {
-        item["vid"]: item for item in get_maas_static_routes(maas_session, module)
+        item["destination"]["name"]: item
+        for item in get_maas_static_routes(maas_session, module)
     }
+
+    # module.fail_json(msg=f"{current_static_routes_dict}")
 
     if module.params["state"] == "present":
         maas_add_static_routes(
