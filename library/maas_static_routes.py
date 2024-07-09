@@ -321,24 +321,22 @@ def maas_delete_static_routes(
     """
     Given a list of static_routes to remove, we delete those that exist"
     """
-    vlist = []
+    sroutelist = []
 
     for static_route in module_static_routes:
-        fabric_id = 0
-        vid = (
-            int(static_route["vid"])
-            if "vid" in static_route.keys()
-            else int(static_route["name"])
-        )
-
-        if vid in current_static_routes.keys():
-            vlist.append(vid)
+        if (
+            matching_route := lookup_static_route(
+                static_route["destination"], current_static_routes, module
+            )
+        ) is not None:
+            sroutelist.append(static_route["destination"])
             res["changed"] = True
+            static_route["id"] = matching_route["id"]
 
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/static-routes/{vid}/",
+                        f"{module.params['site']}/api/2.0/static-routes/{static_route['id']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -347,7 +345,7 @@ def maas_delete_static_routes(
                     )
 
                 new_static_routes_dict = {
-                    item["vid"]: item
+                    item["destination"]["name"]: item
                     for item in get_maas_static_routes(session, module)
                 }
 
@@ -356,8 +354,8 @@ def maas_delete_static_routes(
                     after=safe_dump(new_static_routes_dict),
                 )
 
-    if vlist:
-        res["message"].append("Removed static_routes: " + str(vlist))
+    if sroutelist:
+        res["message"].append("Removed static_routes: " + str(sroutelist))
 
 
 def maas_exact_static_routes(
