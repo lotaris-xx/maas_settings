@@ -48,3 +48,23 @@
         static_routes:
           - destination: 192.168.66.0/24
           - destination: 2.0.0.0/8
+
+    - name: Exact static
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.0.1
+            metric: 1
+
+    - name: Exact static (empty list)
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        static_routes: []

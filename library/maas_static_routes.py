@@ -173,8 +173,6 @@ def get_maas_static_routes(session, module):
         )
         current_static_routes.raise_for_status()
 
-        # module.fail_json(msg=f"{current_static_routes.json()}")
-
         # filter the list down to keys we support
         for static_route in current_static_routes.json():
             filtered_static_routes.append(
@@ -315,6 +313,42 @@ def maas_add_static_routes(
         res["message"].append("Updated static_routes: " + str(sroutelist_updated))
 
 
+def maas_delete_all_static_routes(session, current_static_routes, module, res):
+    """
+    Delete all static routes
+    """
+    sroutelist = []
+
+    for item in current_static_routes:
+        sroute = current_static_routes[item]
+        sroutelist.append(sroute["destination"])
+        res["changed"] = True
+
+        if not module.check_mode:
+            try:
+                r = session.delete(
+                    f"{module.params['site']}/api/2.0/static-routes/{sroute['id']}/",
+                )
+                r.raise_for_status()
+            except exceptions.RequestException as e:
+                module.fail_json(
+                    msg=f"static_route Remove Failed: {format(str(e))} with {format(current_static_routes)}"
+                )
+
+            new_static_routes_dict = {
+                item["destination"]["name"]: item
+                for item in get_maas_static_routes(session, module)
+            }
+
+            res["diff"] = dict(
+                before=safe_dump(current_static_routes),
+                after=safe_dump(new_static_routes_dict),
+            )
+
+    if sroutelist:
+        res["message"].append("Removed static_routes: " + str(sroutelist))
+
+
 def maas_delete_static_routes(
     session, current_static_routes, module_static_routes, module, res
 ):
@@ -323,20 +357,20 @@ def maas_delete_static_routes(
     """
     sroutelist = []
 
-    for static_route in module_static_routes:
+    for sroute in module_static_routes:
         if (
             matching_route := lookup_static_route(
-                static_route["destination"], current_static_routes, module
+                sroute["destination"], current_static_routes, module
             )
         ) is not None:
-            sroutelist.append(static_route["destination"])
+            sroutelist.append(sroute["destination"])
             res["changed"] = True
-            static_route["id"] = matching_route["id"]
+            sroute["id"] = matching_route["id"]
 
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/static-routes/{static_route['id']}/",
+                        f"{module.params['site']}/api/2.0/static-routes/{sroute['id']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -369,35 +403,33 @@ def maas_exact_static_routes(
     wanted_delete = []
     wanted_add_update = []
 
-    for static_route in module_static_routes:
-        static_route["vid"] = (
-            int(static_route["vid"])
-            if "vid" in static_route.keys()
-            else int(static_route["name"])
-        )
-        wanted.append(static_route["vid"])
+    module_static_routes_dict = {k["destination"]: k for k in module_static_routes}
 
-    module_static_routes_dict = {k["vid"]: k for k in module_static_routes}
-    delete_list = [vid for vid in current_static_routes.keys() if vid not in wanted]
-    add_list = [vid for vid in wanted if vid not in current_static_routes.keys()]
-    update_list = [vid for vid in wanted if vid in current_static_routes.keys()]
+    wanted = module_static_routes_dict.keys()
 
-    delete_list.remove(0)
+    for sroute in current_static_routes:
+        dest = sroute["destination"]
+        if (dest["name"] not in wanted) and (dest["cidr"] not in wanted):
+            wanted_delete.append(sroute)
+        else:
+            wanted_add_update.append(sroute)
 
-    if delete_list:
-        wanted_delete = [{"name": k} for k in delete_list]
+    for sroute in module_static_routes:
+        if (
+            matching_route := lookup_static_route(
+                sroute["destination"], current_static_routes, module
+            )
+        ) is None:
+            wanted_add_update.append(sroute)
+
+    if wanted_delete:
         maas_delete_static_routes(
             session, current_static_routes, wanted_delete, module, res
         )
 
-    if add_list:
-        wanted_add = [module_static_routes_dict[k] for k in add_list]
-        maas_add_static_routes(session, current_static_routes, wanted_add, module, res)
-
-    if update_list:
-        wanted_update = [module_static_routes_dict[k] for k in update_list]
+    if wanted_add_update:
         maas_add_static_routes(
-            session, current_static_routes, wanted_update, module, res
+            session, current_static_routes, wanted_add_update, module, res
         )
 
 
@@ -461,13 +493,21 @@ def run_module():
         )
 
     elif module.params["state"] == "exact":
-        maas_exact_static_routes(
-            maas_session,
-            current_static_routes_dict,
-            module.params["static_routes"],
-            module,
-            result,
-        )
+        if module.params["static_routes"]:
+            maas_exact_static_routes(
+                maas_session,
+                current_static_routes_dict,
+                module.params["static_routes"],
+                module,
+                result,
+            )
+        else:
+            maas_delete_all_static_routes(
+                maas_session,
+                current_static_routes_dict,
+                module,
+                result,
+            )
 
     module.exit_json(**result)
 
