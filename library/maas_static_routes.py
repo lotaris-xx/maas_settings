@@ -276,7 +276,6 @@ def maas_add_static_routes(
                 sroutelist_updated.append(static_route["destination"])
                 res["changed"] = True
 
-                # module.fail_json(msg=f"{current_static_routes}")
                 static_route["id"] = matching_route["id"]
 
                 if not module.check_mode:
@@ -472,8 +471,6 @@ def run_module():
         for item in get_maas_static_routes(maas_session, module)
     }
 
-    # module.fail_json(msg=f"{current_static_routes_dict}")
-
     if module.params["state"] == "present":
         maas_add_static_routes(
             maas_session,
@@ -517,36 +514,6 @@ def validate_module_parameters(module):
     Perform simple validations on module parameters
     """
     static_routes = module.params["static_routes"]
-
-    # Detect duplice vids
-    vid_list = [
-        static_route["vid"] if "vid" in static_route.keys() else static_route["name"]
-        for static_route in static_routes
-    ]
-    if len(vid_list) != len(set(vid_list)):
-        static_route_dupes = [
-            item for item, count in Counter(vid_list).items() if count > 1
-        ]
-        module.fail_json(
-            msg=f"Duplicate vids handed to us in list of static_routes. Dupes are {static_route_dupes} from: {static_routes}"
-        )
-
-    # Detect invalid vids
-    invalid_vid_list = [
-        vid for vid in vid_list if not type(vid) is int or (vid < 1 or vid > 4094)
-    ]
-    if len(invalid_vid_list):
-        module.fail_json(
-            msg=f"Invalid VIDs detected {invalid_vid_list} from: {static_routes}"
-        )
-
-    # Detect keys we don't yet handle
-    for static_route in static_routes:
-        for key in static_route.keys():
-            if key not in STATIC_ROUTE_SUPPORTED_KEYS:
-                module.fail_json(
-                    msg=f"{key} is not a supported key. Possible values {STATIC_ROUTE_SUPPORTED_KEYS}"
-                )
 
 
 def main():
