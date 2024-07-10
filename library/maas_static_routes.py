@@ -464,9 +464,6 @@ def run_module():
         signature_method="PLAINTEXT",
     )
 
-    # We need to key on both of these. Probably more pythonic ways
-    # of doing this.
-
     current_static_routes_dict = {
         item["destination"]["name"]: item
         for item in get_maas_static_routes(maas_session, module)
