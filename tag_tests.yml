@@ -1,0 +1,25 @@
+---
+- name: Demonstrate operating on MAAS tags
+  hosts: all
+  gather_facts: false
+  module_defaults:
+    maas_tags:
+      username: "{{ maas_username }}"
+      password: "{{ maas_password }}"
+      site: "{{ maas_site }}"
+  tasks:
+    - name: Add a tag
+      maas_tags:
+        tags: "{{ maas_tags }}"
+      delegate_to: localhost
+      vars:
+        maas_tags:
+          - name: first_tag
+    - name: Modify a tag
+      maas_tags:
+        tags: "{{ maas_tags }}"
+      delegate_to: localhost
+      vars:
+        maas_tags:
+          - name: first_tag
+            comment: This is the first tag

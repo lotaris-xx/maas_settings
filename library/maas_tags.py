@@ -138,22 +138,18 @@ def tag_needs_updating(current, wanted, module):
     """
 
     ret = False
+
     current_filtered = {k: v for k, v in current.items() if k in TAG_MODIFY_KEYS}
     wanted_filtered = {k: v for k, v in wanted.items() if k in TAG_MODIFY_KEYS}
 
-    # We need to compare manually as source may match name or cidr attributes
-    if "metric" in wanted_filtered.keys():
-        if str(wanted_filtered["metric"]) != str(current_filtered["metric"]):
+    if current_filtered.keys() != wanted_filtered.keys():
+        ret = True
+
+    for key in wanted_filtered.keys():
+        if (key not in current_filtered.keys()) or (
+            str(wanted_filtered[key]) != str(current_filtered[key])
+        ):
             ret = True
-
-    if wanted_filtered["gateway_ip"] != current_filtered["gateway_ip"]:
-        ret = True
-
-    if wanted_filtered["source"] not in (
-        current_filtered["source"]["name"],
-        current_filtered["source"]["cidr"],
-    ):
-        ret = True
 
     return ret
 
@@ -164,7 +160,7 @@ def get_maas_tags(session, module):
     """
     try:
         filtered_tags = []
-        current_tags = session.get(f"{module.params['site']}/api/2.0/static-routes/")
+        current_tags = session.get(f"{module.params['site']}/api/2.0/tags/")
         current_tags.raise_for_status()
 
         # filter the list down to keys we support
@@ -202,16 +198,12 @@ def grab_maas_apikey(module):
 
 def lookup_tag(lookup, current_tags, module):
     """
-    Given a lookup return a static route if the lookup
-    matches either the name or cidr property of a current route
+    Given a lookup return a tag if the lookup
+    matches a current tag
     """
 
-    for item in current_tags:
-        if lookup in [
-            current_tags[item]["destination"]["name"],
-            current_tags[item]["destination"]["cidr"],
-        ]:
-            return current_tags[item]
+    if lookup["name"] in current_tags.keys():
+        return current_tags[lookup["name"]]
 
     return None
 
@@ -228,26 +220,24 @@ def maas_add_tags(session, current_tags, module_tags, module, res):
     matching_route = {}
 
     for tag in module_tags:
-        if "metric" not in tag.keys():
-            tag["metric"] = 0
-
-        if (
-            matching_route := lookup_tag(tag["destination"], current_tags, module)
-        ) is None:
-
-            taglist_added.append(tag["destination"])
+        if (matching_tag := lookup_tag(tag, current_tags, module)) is None:
+            taglist_added.append(tag)
             res["changed"] = True
 
             if not module.check_mode:
                 payload = {
-                    "source": tag["source"],
-                    "destination": tag["destination"],
-                    "gateway_ip": tag["gateway_ip"],
-                    "metric": tag["metric"],
+                    "name": tag["name"],
+                    "comment": tag["comment"] if "comment" in tag.keys() else "",
+                    "definition": (
+                        tag["definition"] if "definition" in tag.keys() else ""
+                    ),
+                    "kernel_opts": (
+                        tag["kernel_opts"] if "kernel_opts" in tag.keys() else ""
+                    ),
                 }
                 try:
                     r = session.post(
-                        f"{module.params['site']}/api/2.0/static-routes/",
+                        f"{module.params['site']}/api/2.0/tags/",
                         data=payload,
                     )
                     r.raise_for_status()
@@ -256,21 +246,23 @@ def maas_add_tags(session, current_tags, module_tags, module, res):
                         msg=f"tag Add Failed: {format(str(e))} with payload {format(payload)} and {format(tag)}"
                     )
         else:
-            if tag_needs_updating(matching_route, tag, module):
-                taglist_updated.append(tag["destination"])
+            if tag_needs_updating(matching_tag, tag, module):
+                taglist_updated.append(tag)
                 res["changed"] = True
-
-                tag["id"] = matching_route["id"]
 
                 if not module.check_mode:
                     payload = {
-                        "source": tag["source"],
-                        "gateway_ip": tag["gateway_ip"],
-                        "metric": tag["metric"],
+                        "comment": (tag["comment"] if "comment" in tag.keys() else ""),
+                        "definition": (
+                            tag["definition"] if "definition" in tag.keys() else ""
+                        ),
+                        "kernel_opts": (
+                            tag["kernel_opts"] if "kernel_opts" in tag.keys() else ""
+                        ),
                     }
                     try:
                         r = session.put(
-                            f"{module.params['site']}/api/2.0/static-routes/{tag['id']}/",
+                            f"{module.params['site']}/api/2.0/tags/{tag['name']}/",
                             data=payload,
                         )
                         r.raise_for_status()
@@ -279,9 +271,7 @@ def maas_add_tags(session, current_tags, module_tags, module, res):
                             msg=f"tag Update Failed: {format(str(e))} with payload {format(payload)} and {format(tag)}"
                         )
 
-    new_tags_dict = {
-        item["destination"]["name"]: item for item in get_maas_tags(session, module)
-    }
+    new_tags_dict = {item["name"]: item for item in get_maas_tags(session, module)}
 
     res["diff"] = dict(
         before=safe_dump(current_tags),
@@ -297,7 +287,7 @@ def maas_add_tags(session, current_tags, module_tags, module, res):
 
 def maas_delete_all_tags(session, current_tags, module, res):
     """
-    Delete all static routes
+    Delete all tags
     """
     taglist = []
 
@@ -309,7 +299,7 @@ def maas_delete_all_tags(session, current_tags, module, res):
         if not module.check_mode:
             try:
                 r = session.delete(
-                    f"{module.params['site']}/api/2.0/static-routes/{tag['id']}/",
+                    f"{module.params['site']}/api/2.0/tags/{tag['id']}/",
                 )
                 r.raise_for_status()
             except exceptions.RequestException as e:
@@ -348,7 +338,7 @@ def maas_delete_tags(session, current_tags, module_tags, module, res):
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/static-routes/{tag['id']}/",
+                        f"{module.params['site']}/api/2.0/tags/{tag['id']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -434,12 +424,8 @@ def run_module():
         signature_method="PLAINTEXT",
     )
 
-    # We need to key on both of these. Probably more pythonic ways
-    # of doing this.
-
     current_tags_dict = {
-        item["destination"]["name"]: item
-        for item in get_maas_tags(maas_session, module)
+        item["name"]: item for item in get_maas_tags(maas_session, module)
     }
 
     if module.params["state"] == "present":
