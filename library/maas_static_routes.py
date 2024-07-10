@@ -452,7 +452,7 @@ def run_module():
     if not HAS_REQUESTS_OAUTHLIB:
         module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
-    # validate_module_parameters(module)
+    validate_module_parameters(module)
 
     response = grab_maas_apikey(module)
     api_cred = maas_api_cred(response.json())
