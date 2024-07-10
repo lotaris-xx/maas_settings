@@ -94,29 +94,32 @@ author:
 
 EXAMPLES = r"""
 # Add 3 vlans if they don't exist
--  username: user
-   password: password
-   vlans:
-     - name: 100
-     - name: 200
-     - name: 300
+-  maas_vlans:
+     username: user
+     password: password
+     vlans:
+       - name: 100
+       - name: 200
+       - name: 300
 
 # Remove two vlans if they exist
--  username: user
-   password: password
-   state: absent
-   vlans:
-     - name: 200
-     - name: 300
+-  maas_vlans:
+     username: user
+     password: password
+     state: absent
+     vlans:
+       - name: 200
+       - name: 300
 
 # Add/Remove as needed to exactly match given list
--  username: user
-   password: password
-   state: exact
-   vlans:
-     - name: 400
-     - name: VLAN 500
-       vid: 500
+-  maas_vlans:
+     username: user
+     password: password
+     state: exact
+     vlans:
+       - name: 400
+       - name: VLAN 500
+         vid: 500
 
 """
 

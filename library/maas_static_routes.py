@@ -95,16 +95,17 @@ author:
 
 EXAMPLES = r"""
 # Add/Remove as needed to exactly match given list
--  username: user
-   password: password
-   state: exact
-   static_routes:
-     - source: 10.23.1.0/24
-       destination: 1.2.0.0/16
-       gateway_ip: 10.23.1.1
-     - source: 10.23.1.0/24
-       destination: 192.168.66.0/24
-       gateway_ip: 10.23.1.1
+-  maas_static_routes:
+     username: user
+     password: password
+     state: exact
+     static_routes:
+       - source: 10.23.1.0/24
+         destination: 1.2.0.0/16
+         gateway_ip: 10.23.1.1
+       - source: 10.23.1.0/24
+         destination: 192.168.66.0/24
+         gateway_ip: 10.23.1.1
 """
 
 RETURN = r"""
