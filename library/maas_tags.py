@@ -396,7 +396,7 @@ def run_module():
     if not HAS_REQUESTS_OAUTHLIB:
         module.fail_json(msg=missing_required_lib("requests_oauthlib"))
 
-    # validate_module_parameters(module)
+    validate_module_parameters(module)
 
     response = grab_maas_apikey(module)
     api_cred = maas_api_cred(response.json())
@@ -454,7 +454,13 @@ def validate_module_parameters(module):
     """
     Perform simple validations on module parameters
     """
+
+    import string
+
     tags = module.params["tags"]
+    for tag in tags:
+        if any(c in tag["name"] for c in string.whitespace):
+            module.fail_json(msg=f"Tag names should be valid in a URL, found {tag}")
 
 
 def main():
