@@ -8,13 +8,14 @@
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
-    - name: Add a tag
+    - name: Add some tags
       maas_tags:
         tags: "{{ maas_tags }}"
       delegate_to: localhost
       vars:
         maas_tags:
           - name: first_tag
+          - name: virtual
     - name: Modify a tag
       maas_tags:
         tags: "{{ maas_tags }}"
@@ -23,3 +24,35 @@
         maas_tags:
           - name: first_tag
             comment: This is the first tag
+    - name: Remove a tag
+      maas_tags:
+        tags: "{{ maas_tags }}"
+        state: absent
+      delegate_to: localhost
+      vars:
+        maas_tags:
+          - name: first_tag
+    - name: Exact List
+      maas_tags:
+        tags: "{{ maas_tags }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        maas_tags:
+          - name: first_tag
+          - name: virtual
+    - name: Exact List with changes
+      maas_tags:
+        tags: "{{ maas_tags }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        maas_tags:
+          - name: virtual
+    - name: Exact List with no members
+      maas_tags:
+        tags: "{{ maas_tags }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        maas_tags: []

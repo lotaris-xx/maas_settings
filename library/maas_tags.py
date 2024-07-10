@@ -292,14 +292,13 @@ def maas_delete_all_tags(session, current_tags, module, res):
     taglist = []
 
     for item in current_tags:
-        tag = current_tags[item]
-        taglist.append(tag["destination"])
+        taglist.append(item)
         res["changed"] = True
 
         if not module.check_mode:
             try:
                 r = session.delete(
-                    f"{module.params['site']}/api/2.0/tags/{tag['id']}/",
+                    f"{module.params['site']}/api/2.0/tags/{item}/",
                 )
                 r.raise_for_status()
             except exceptions.RequestException as e:
@@ -308,8 +307,7 @@ def maas_delete_all_tags(session, current_tags, module, res):
                 )
 
             new_tags_dict = {
-                item["destination"]["name"]: item
-                for item in get_maas_tags(session, module)
+                item["name"]: item for item in get_maas_tags(session, module)
             }
 
             res["diff"] = dict(
@@ -328,17 +326,14 @@ def maas_delete_tags(session, current_tags, module_tags, module, res):
     taglist = []
 
     for tag in module_tags:
-        if (
-            matching_route := lookup_tag(tag["destination"], current_tags, module)
-        ) is not None:
-            taglist.append(tag["destination"])
+        if (matching_tag := lookup_tag(tag, current_tags, module)) is not None:
+            taglist.append(tag["name"])
             res["changed"] = True
-            tag["id"] = matching_route["id"]
 
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/tags/{tag['id']}/",
+                        f"{module.params['site']}/api/2.0/tags/{tag['name']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -347,8 +342,7 @@ def maas_delete_tags(session, current_tags, module_tags, module, res):
                     )
 
                 new_tags_dict = {
-                    item["destination"]["name"]: item
-                    for item in get_maas_tags(session, module)
+                    item["name"]: item for item in get_maas_tags(session, module)
                 }
 
                 res["diff"] = dict(
@@ -366,31 +360,21 @@ def maas_exact_tags(session, current_tags, module_tags, module, res):
     to make reality match the list
     """
     wanted = []
-    wanted_delete = []
-    wanted_add_update = []
+    delete_list = []
 
-    module_tags_dict = {k["destination"]: k for k in module_tags}
+    module_tags_dict = {k["name"]: k for k in module_tags}
 
     wanted = module_tags_dict.keys()
 
-    for tag in current_tags:
-        dest = tag["destination"]
-        if (dest["name"] not in wanted) and (dest["cidr"] not in wanted):
-            wanted_delete.append(tag)
-        else:
-            wanted_add_update.append(tag)
+    delete_list = [
+        current_tags[tag] for tag in current_tags.keys() if tag not in wanted
+    ]
 
-    for tag in module_tags:
-        if (
-            matching_route := lookup_tag(tag["destination"], current_tags, module)
-        ) is None:
-            wanted_add_update.append(tag)
+    if delete_list:
+        maas_delete_tags(session, current_tags, delete_list, module, res)
 
-    if wanted_delete:
-        maas_delete_tags(session, current_tags, wanted_delete, module, res)
-
-    if wanted_add_update:
-        maas_add_tags(session, current_tags, wanted_add_update, module, res)
+    if wanted:
+        maas_add_tags(session, current_tags, module_tags, module, res)
 
 
 def run_module():
