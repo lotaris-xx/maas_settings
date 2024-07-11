@@ -460,7 +460,7 @@ def validate_module_parameters(module):
     tags = module.params["tags"]
     for tag in tags:
         if any(c in tag["name"] for c in string.whitespace):
-            module.fail_json(msg=f"Tag names should be valid in a URL, found {tag}")
+            module.fail_json(msg=f"Tag names can not contain whitespace, found {tag}")
 
 
 def main():
