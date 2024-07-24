@@ -157,6 +157,7 @@ def subnet_needs_updating(current, wanted, module):
     """
 
     ret = False
+
     current_filtered = {k: v for k, v in current.items() if k in SUBNET_MODIFY_KEYS}
     wanted_filtered = {k: v for k, v in wanted.items() if k in SUBNET_MODIFY_KEYS}
 
@@ -212,18 +213,14 @@ def grab_maas_apikey(module):
         module.fail_json(msg="Auth failed: {}".format(str(e)))
 
 
-def lookup_subnet(lookup, current_sroutes, module):
+def lookup_subnet(lookup, current_subnets, module):
     """
-    Given a lookup return a static route if the lookup
-    matches either the name or cidr property of a current route
+    Given a lookup return a subnet if the lookup
+    matches a current subnet
     """
 
-    for item in current_sroutes:
-        if lookup in [
-            current_sroutes[item]["destination"]["name"],
-            current_sroutes[item]["destination"]["cidr"],
-        ]:
-            return current_sroutes[item]
+    if lookup["name"] in current_subnets.keys():
+        return current_subnets[lookup["name"]]
 
     return None
 
@@ -235,29 +232,25 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
     is a parameter that we can update, we call a function to do
     that.
     """
-    sroutelist_added = []
-    sroutelist_updated = []
+    subnetlist_added = []
+    subnetlist_updated = []
     matching_route = {}
 
     for subnet in module_subnets:
-        if "metric" not in subnet.keys():
-            subnet["metric"] = 0
-
-        if (
-            matching_route := lookup_subnet(
-                subnet["destination"], current_subnets, module
-            )
-        ) is None:
-
-            sroutelist_added.append(subnet["destination"])
+        if (matching_subnet := lookup_subnet(subnet, current_subnets, module)) is None:
+            subnetlist_added.append(subnet)
             res["changed"] = True
 
             if not module.check_mode:
                 payload = {
-                    "source": subnet["source"],
-                    "destination": subnet["destination"],
-                    "gateway_ip": subnet["gateway_ip"],
-                    "metric": subnet["metric"],
+                    "name": subnet["name"],
+                    "comment": subnet["comment"] if "comment" in subnet.keys() else "",
+                    "definition": (
+                        subnet["definition"] if "definition" in subnet.keys() else ""
+                    ),
+                    "kernel_opts": (
+                        subnet["kernel_opts"] if "kernel_opts" in subnet.keys() else ""
+                    ),
                 }
                 try:
                     r = session.post(
@@ -270,21 +263,29 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
                         msg=f"subnet Add Failed: {format(str(e))} with payload {format(payload)} and {format(subnet)}"
                     )
         else:
-            if subnet_needs_updating(matching_route, subnet, module):
-                sroutelist_updated.append(subnet["destination"])
+            if subnet_needs_updating(matching_subnet, subnet, module):
+                subnetlist_updated.append(subnet)
                 res["changed"] = True
-
-                subnet["id"] = matching_route["id"]
 
                 if not module.check_mode:
                     payload = {
-                        "source": subnet["source"],
-                        "gateway_ip": subnet["gateway_ip"],
-                        "metric": subnet["metric"],
+                        "comment": (
+                            subnet["comment"] if "comment" in subnet.keys() else ""
+                        ),
+                        "definition": (
+                            subnet["definition"]
+                            if "definition" in subnet.keys()
+                            else ""
+                        ),
+                        "kernel_opts": (
+                            subnet["kernel_opts"]
+                            if "kernel_opts" in subnet.keys()
+                            else ""
+                        ),
                     }
                     try:
                         r = session.put(
-                            f"{module.params['site']}/api/2.0/subnets/{subnet['id']}/",
+                            f"{module.params['site']}/api/2.0/subnets/{subnet['name']}/",
                             data=payload,
                         )
                         r.raise_for_status()
@@ -294,7 +295,7 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
                         )
 
     new_subnets_dict = {
-        item["destination"]["name"]: item for item in get_maas_subnets(session, module)
+        item["name"]: item for item in get_maas_subnets(session, module)
     }
 
     res["diff"] = dict(
@@ -302,28 +303,27 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
         after=safe_dump(new_subnets_dict),
     )
 
-    if sroutelist_added:
-        res["message"].append("Added subnets: " + str(sroutelist_added))
+    if subnetlist_added:
+        res["message"].append("Added subnets: " + str(subnetlist_added))
 
-    if sroutelist_updated:
-        res["message"].append("Updated subnets: " + str(sroutelist_updated))
+    if subnetlist_updated:
+        res["message"].append("Updated subnets: " + str(subnetlist_updated))
 
 
 def maas_delete_all_subnets(session, current_subnets, module, res):
     """
-    Delete all static routes
+    Delete all subnets
     """
-    sroutelist = []
+    subnetlist = []
 
     for item in current_subnets:
-        sroute = current_subnets[item]
-        sroutelist.append(sroute["destination"])
+        subnetlist.append(item)
         res["changed"] = True
 
         if not module.check_mode:
             try:
                 r = session.delete(
-                    f"{module.params['site']}/api/2.0/subnets/{sroute['id']}/",
+                    f"{module.params['site']}/api/2.0/subnets/{item}/",
                 )
                 r.raise_for_status()
             except exceptions.RequestException as e:
@@ -332,8 +332,7 @@ def maas_delete_all_subnets(session, current_subnets, module, res):
                 )
 
             new_subnets_dict = {
-                item["destination"]["name"]: item
-                for item in get_maas_subnets(session, module)
+                item["name"]: item for item in get_maas_subnets(session, module)
             }
 
             res["diff"] = dict(
@@ -341,30 +340,27 @@ def maas_delete_all_subnets(session, current_subnets, module, res):
                 after=safe_dump(new_subnets_dict),
             )
 
-    if sroutelist:
-        res["message"].append("Removed subnets: " + str(sroutelist))
+    if subnetlist:
+        res["message"].append("Removed subnets: " + str(subnetlist))
 
 
 def maas_delete_subnets(session, current_subnets, module_subnets, module, res):
     """
     Given a list of subnets to remove, we delete those that exist"
     """
-    sroutelist = []
+    subnetlist = []
 
-    for sroute in module_subnets:
+    for subnet in module_subnets:
         if (
-            matching_route := lookup_subnet(
-                sroute["destination"], current_subnets, module
-            )
+            matching_subnet := lookup_subnet(subnet, current_subnets, module)
         ) is not None:
-            sroutelist.append(sroute["destination"])
+            subnetlist.append(subnet["name"])
             res["changed"] = True
-            sroute["id"] = matching_route["id"]
 
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/subnets/{sroute['id']}/",
+                        f"{module.params['site']}/api/2.0/subnets/{subnet['name']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -373,8 +369,7 @@ def maas_delete_subnets(session, current_subnets, module_subnets, module, res):
                     )
 
                 new_subnets_dict = {
-                    item["destination"]["name"]: item
-                    for item in get_maas_subnets(session, module)
+                    item["name"]: item for item in get_maas_subnets(session, module)
                 }
 
                 res["diff"] = dict(
@@ -382,8 +377,8 @@ def maas_delete_subnets(session, current_subnets, module_subnets, module, res):
                     after=safe_dump(new_subnets_dict),
                 )
 
-    if sroutelist:
-        res["message"].append("Removed subnets: " + str(sroutelist))
+    if subnetlist:
+        res["message"].append("Removed subnets: " + str(subnetlist))
 
 
 def maas_exact_subnets(session, current_subnets, module_subnets, module, res):
@@ -392,33 +387,23 @@ def maas_exact_subnets(session, current_subnets, module_subnets, module, res):
     to make reality match the list
     """
     wanted = []
-    wanted_delete = []
-    wanted_add_update = []
+    delete_list = []
 
-    module_subnets_dict = {k["destination"]: k for k in module_subnets}
+    module_subnets_dict = {k["name"]: k for k in module_subnets}
 
     wanted = module_subnets_dict.keys()
 
-    for sroute in current_subnets:
-        dest = sroute["destination"]
-        if (dest["name"] not in wanted) and (dest["cidr"] not in wanted):
-            wanted_delete.append(sroute)
-        else:
-            wanted_add_update.append(sroute)
+    delete_list = [
+        current_subnets[subnet]
+        for subnet in current_subnets.keys()
+        if subnet not in wanted
+    ]
 
-    for sroute in module_subnets:
-        if (
-            matching_route := lookup_subnet(
-                sroute["destination"], current_subnets, module
-            )
-        ) is None:
-            wanted_add_update.append(sroute)
+    if delete_list:
+        maas_delete_subnets(session, current_subnets, delete_list, module, res)
 
-    if wanted_delete:
-        maas_delete_subnets(session, current_subnets, wanted_delete, module, res)
-
-    if wanted_add_update:
-        maas_add_subnets(session, current_subnets, wanted_add_update, module, res)
+    if wanted:
+        maas_add_subnets(session, current_subnets, module_subnets, module, res)
 
 
 def run_module():
@@ -453,8 +438,7 @@ def run_module():
     )
 
     current_subnets_dict = {
-        item["destination"]["name"]: item
-        for item in get_maas_subnets(maas_session, module)
+        item["name"]: item for item in get_maas_subnets(maas_session, module)
     }
 
     if module.params["state"] == "present":
@@ -499,7 +483,15 @@ def validate_module_parameters(module):
     """
     Perform simple validations on module parameters
     """
+
+    import string
+
     subnets = module.params["subnets"]
+    for subnet in subnets:
+        if any(c in subnet["name"] for c in string.whitespace):
+            module.fail_json(
+                msg=f"subnet names can not contain whitespace, found {subnet}"
+            )
 
 
 def main():
