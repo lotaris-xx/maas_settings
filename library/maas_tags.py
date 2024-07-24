@@ -146,9 +146,7 @@ def tag_needs_updating(current, wanted, module):
         ret = True
 
     for key in wanted_filtered.keys():
-        if (key not in current_filtered.keys()) or (
-            str(wanted_filtered[key]) != str(current_filtered[key])
-        ):
+        if str(wanted_filtered[key]) != str(current_filtered[key]):
             ret = True
 
     return ret

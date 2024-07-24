@@ -60,6 +60,7 @@
       maas_tags:
         tags: "{{ maas_tags }}"
       delegate_to: localhost
+      ignore_errors: true
       vars:
         maas_tags:
           - name: tag with whitespace
