@@ -142,7 +142,7 @@ def tag_needs_updating(current, wanted, module):
     current_filtered = {k: v for k, v in current.items() if k in TAG_MODIFY_KEYS}
     wanted_filtered = {k: v for k, v in wanted.items() if k in TAG_MODIFY_KEYS}
 
-    if current_filtered.keys() != wanted_filtered.keys():
+    if sorted(current_filtered) != sorted(wanted_filtered):
         ret = True
 
     for key in wanted_filtered.keys():

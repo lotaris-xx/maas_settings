@@ -158,6 +158,9 @@ def vlan_needs_updating(current, wanted):
     current_filtered = {k: v for k, v in current.items() if k in VLAN_MODIFY_KEYS}
     wanted_filtered = {k: v for k, v in wanted.items() if k in VLAN_MODIFY_KEYS}
 
+    if sorted(current_filtered) != sorted(wanted_filtered):
+        ret = True
+
     for key in wanted_filtered.keys():
         if (key not in current_filtered.keys()) or (
             str(wanted_filtered[key]) != str(current_filtered[key])
