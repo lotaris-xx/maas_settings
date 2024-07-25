@@ -215,7 +215,6 @@ def maas_add_tags(session, current_tags, module_tags, module, res):
     """
     taglist_added = []
     taglist_updated = []
-    matching_route = {}
 
     for tag in module_tags:
         if (matching_tag := lookup_tag(tag, current_tags, module)) is None:
