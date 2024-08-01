@@ -28,7 +28,7 @@
             description: Test 192.168.67 network
             cidr: 192.168.67.0/24
             gateway_ip: 192.168.67.1
-    - name: Add DNS to a subnet
+    - name: Add DNS servers to a subnet
       maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
@@ -41,7 +41,7 @@
               - 10.66.0.5
               - 10.66.0.6
             gateway_ip: 192.168.66.1
-    - name: Remove DNS from a subnet
+    - name: Remove DNS servers from a subnet
       maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
@@ -64,7 +64,7 @@
         subnets: []
         state: exact
       delegate_to: localhost
-    - name: Reset to original state
+    - name: Reset to original state using exact state
       maas_subnets:
         subnets: "{{ subnets }}"
         state: exact
