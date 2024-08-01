@@ -7,6 +7,7 @@ from ansible.module_utils.basic import missing_required_lib
 
 from collections import Counter
 from yaml import safe_dump
+from ipaddress import ip_address, ip_network
 
 try:
     from requests import post, exceptions
@@ -521,18 +522,29 @@ def validate_module_parameters(module):
 
     # SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid", "vlan"]
 
-    from netaddr import AddrFormatError, IPNetwork, IPAddress
-
     # Validate IP related info
-    try:
+    for subnet in subnets:
+        try:
+            network = ipaddress.ip_network(subnet["cidr"])
 
-        for subnet in subnets:
-            network = IPNetwork(subnet["cidr"])
+        except ValueError as e:
+            module.fail_json(msg="CIDR address given is invalid: {}".format(str(e)))
 
-    except AddrFormatError as e:
-        module.fail_json(
-            msg="CIDR address given {} is invalid: {}".format(subnet["cidr"], str(e))
-        )
+        try:
+            for dns_server in subnet["dns_servers"]:
+                dns_address = ipaddress.ip_address(dns_server)
+
+        except ValueError as e:
+            module.fail_json(msg="DNS address given is invalid: {}".format(str(e)))
+
+        try:
+            if subnet["gateway_ip"]:
+                gateway_ip = ipaddress.ip_address(subnet["gateway_ip"])
+
+        except ValueError as e:
+            module.fail_json(
+                msg="Gateway IP address given is invalid: {}".format(str(e))
+            )
 
 
 def main():
