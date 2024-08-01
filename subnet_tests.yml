@@ -76,7 +76,16 @@
             name: 10.66.0.0/16
           - cidr: 192.168.66.0/24
             gateway_ip: 192.168.66.1
-            name: Test 192.168 Network
+            name: Test192
+            description: Test 192.168 network
+    - name: Try to add subnet with no CIDR
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        subnets:
+          - name: 192.168.256.0/24
     - name: Try to add invalid CIDR
       maas_subnets:
         subnets: "{{ subnets }}"

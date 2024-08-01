@@ -502,6 +502,9 @@ def validate_module_parameters(module):
     # We can easily compare and detect needed changes
 
     for subnet in subnets:
+        if "cidr" not in subnet.keys():
+            module.fail_json(msg="cidr is a required parameter, but not given.")
+
         if "vlan" in subnet.keys():
             subnet["vid"] = subnet["vlan"]["vid"]
 
