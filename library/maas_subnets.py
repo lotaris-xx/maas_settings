@@ -29,8 +29,10 @@ SUBNET_SUPPORTED_KEYS = [
     "gateway_ip",
     "name",
     "vid",
+    "vlan",
+    "id",
 ]
-SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid"]
+SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid", "vlan"]
 
 __metaclass__ = type
 
@@ -161,12 +163,28 @@ def subnet_needs_updating(current, wanted, module):
     current_filtered = {k: v for k, v in current.items() if k in SUBNET_MODIFY_KEYS}
     wanted_filtered = {k: v for k, v in wanted.items() if k in SUBNET_MODIFY_KEYS}
 
-    if sorted(current_filtered) != sorted(wanted_filtered):
+    # We need to compare manually as wanted probably has vid, but current will have vlan.
+    # SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid", "vlan"]
+
+    if wanted_filtered["description"] != current_filtered["description"]:
         ret = True
 
-    for key in wanted_filtered.keys():
-        if str(wanted_filtered[key]) != str(current_filtered[key]):
-            ret = True
+    if sorted(wanted_filtered["dns_servers"]) != sorted(
+        current_filtered["dns_servers"]
+    ):
+        ret = True
+
+    if wanted_filtered["gateway_ip"] != current_filtered["gateway_ip"]:
+        ret = True
+
+    if wanted_filtered["name"] != current_filtered["name"]:
+        ret = True
+
+    if str(wanted_filtered["vid"]) != str(current_filtered["vlan"]["vid"]):
+        ret = True
+
+    if str(wanted_filtered["vlan"]["vid"]) != str(current_filtered["vlan"]["vid"]):
+        ret = True
 
     return ret
 
@@ -218,9 +236,8 @@ def lookup_subnet(lookup, current_subnets, module):
     Given a lookup return a subnet if the lookup
     matches a current subnet
     """
-
-    if lookup["name"] in current_subnets.keys():
-        return current_subnets[lookup["name"]]
+    if lookup["cidr"] in current_subnets.keys():
+        return current_subnets[lookup["cidr"]]
 
     return None
 
@@ -234,7 +251,6 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
     """
     subnetlist_added = []
     subnetlist_updated = []
-    matching_route = {}
 
     for subnet in module_subnets:
         if (matching_subnet := lookup_subnet(subnet, current_subnets, module)) is None:
@@ -243,14 +259,12 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
 
             if not module.check_mode:
                 payload = {
+                    "cidr": subnet["cidr"],
+                    "description": subnet["description"],
+                    "dns_servers": ",".join(subnet["dns_servers"]),
+                    "gateway_ip": subnet["gateway_ip"],
                     "name": subnet["name"],
-                    "comment": subnet["comment"] if "comment" in subnet.keys() else "",
-                    "definition": (
-                        subnet["definition"] if "definition" in subnet.keys() else ""
-                    ),
-                    "kernel_opts": (
-                        subnet["kernel_opts"] if "kernel_opts" in subnet.keys() else ""
-                    ),
+                    "vid": subnet["vid"],
                 }
                 try:
                     r = session.post(
@@ -267,25 +281,19 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
                 subnetlist_updated.append(subnet)
                 res["changed"] = True
 
+                subnet["id"] = matching_subnet["id"]
+
                 if not module.check_mode:
                     payload = {
-                        "comment": (
-                            subnet["comment"] if "comment" in subnet.keys() else ""
-                        ),
-                        "definition": (
-                            subnet["definition"]
-                            if "definition" in subnet.keys()
-                            else ""
-                        ),
-                        "kernel_opts": (
-                            subnet["kernel_opts"]
-                            if "kernel_opts" in subnet.keys()
-                            else ""
-                        ),
+                        "description": subnet["description"],
+                        "dns_servers": ",".join(subnet["dns_servers"]),
+                        "gateway_ip": subnet["gateway_ip"],
+                        "name": subnet["name"],
+                        "vid": subnet["vid"],
                     }
                     try:
                         r = session.put(
-                            f"{module.params['site']}/api/2.0/subnets/{subnet['name']}/",
+                            f"{module.params['site']}/api/2.0/subnets/{subnet['id']}/",
                             data=payload,
                         )
                         r.raise_for_status()
@@ -295,7 +303,7 @@ def maas_add_subnets(session, current_subnets, module_subnets, module, res):
                         )
 
     new_subnets_dict = {
-        item["name"]: item for item in get_maas_subnets(session, module)
+        item["cidr"]: item for item in get_maas_subnets(session, module)
     }
 
     res["diff"] = dict(
@@ -332,7 +340,7 @@ def maas_delete_all_subnets(session, current_subnets, module, res):
                 )
 
             new_subnets_dict = {
-                item["name"]: item for item in get_maas_subnets(session, module)
+                item["cidr"]: item for item in get_maas_subnets(session, module)
             }
 
             res["diff"] = dict(
@@ -354,13 +362,15 @@ def maas_delete_subnets(session, current_subnets, module_subnets, module, res):
         if (
             matching_subnet := lookup_subnet(subnet, current_subnets, module)
         ) is not None:
-            subnetlist.append(subnet["name"])
+            subnetlist.append(subnet["cidr"])
             res["changed"] = True
+
+            subnet["id"] = matching_subnet["id"]
 
             if not module.check_mode:
                 try:
                     r = session.delete(
-                        f"{module.params['site']}/api/2.0/subnets/{subnet['name']}/",
+                        f"{module.params['site']}/api/2.0/subnets/{subnet['id']}/",
                     )
                     r.raise_for_status()
                 except exceptions.RequestException as e:
@@ -369,7 +379,7 @@ def maas_delete_subnets(session, current_subnets, module_subnets, module, res):
                     )
 
                 new_subnets_dict = {
-                    item["name"]: item for item in get_maas_subnets(session, module)
+                    item["cidr"]: item for item in get_maas_subnets(session, module)
                 }
 
                 res["diff"] = dict(
@@ -389,7 +399,7 @@ def maas_exact_subnets(session, current_subnets, module_subnets, module, res):
     wanted = []
     delete_list = []
 
-    module_subnets_dict = {k["name"]: k for k in module_subnets}
+    module_subnets_dict = {k["cidr"]: k for k in module_subnets}
 
     wanted = module_subnets_dict.keys()
 
@@ -438,8 +448,10 @@ def run_module():
     )
 
     current_subnets_dict = {
-        item["name"]: item for item in get_maas_subnets(maas_session, module)
+        item["cidr"]: item for item in get_maas_subnets(maas_session, module)
     }
+
+    # module.fail_json(msg=f"{current_subnets_dict}")
 
     if module.params["state"] == "present":
         maas_add_subnets(
@@ -487,11 +499,28 @@ def validate_module_parameters(module):
     import string
 
     subnets = module.params["subnets"]
+
+    # Ensure we have all keys that we support modifying so that
+    # We can easily compare and detect needed changes
+
     for subnet in subnets:
-        if any(c in subnet["name"] for c in string.whitespace):
-            module.fail_json(
-                msg=f"subnet names can not contain whitespace, found {subnet}"
-            )
+        if "vlan" in subnet.keys():
+            subnet["vid"] = subnet["vlan"]["vid"]
+
+        for key in SUBNET_MODIFY_KEYS:
+            if key not in subnet.keys():
+                if key == "dns_servers":
+                    subnet[key] = []
+                elif key == "vid":
+                    subnet[key] = "0"
+                elif key == "vlan":
+                    if "vid" in subnet.keys():
+                        subnet[key] = {"vid": subnet["vid"]}
+                    else:
+                        subnet[key] = {"vid": "0"}
+                        subnet["vid"] = "0"
+                else:
+                    subnet[key] = ""
 
 
 def main():

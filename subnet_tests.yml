@@ -1,0 +1,61 @@
+---
+- name: Demonstrate operating on MAAS Subnets
+  hosts: all
+  gather_facts: false
+  module_defaults:
+    maas_subnets:
+      username: "{{ maas_username }}"
+      password: "{{ maas_password }}"
+      site: "{{ maas_site }}"
+  tasks:
+    - name: Add a subnet
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192
+            description: Test 192.168 network
+            cidr: 192.168.66.0/24
+            gateway_ip: 192.168.66.1
+    - name: Add another subnet
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192.67
+            description: Test 192.168.67 network
+            cidr: 192.168.67.0/24
+            gateway_ip: 192.168.67.1
+    - name: Add DNS to a subnet
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192
+            description: Test 192.168 network
+            cidr: 192.168.66.0/24
+            dns_servers:
+              - 10.66.0.5
+              - 10.66.0.6
+            gateway_ip: 192.168.66.1
+    - name: Remove DNS from a subnet
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192
+            description: Test 192.168 network
+            cidr: 192.168.66.0/24
+            gateway_ip: 192.168.66.1
+    - name: Remove a subnet
+      maas_subnets:
+        subnets: "{{ subnets }}"
+        state: absent
+      delegate_to: localhost
+      vars:
+        subnets:
+          - cidr: 192.168.67.0/24
