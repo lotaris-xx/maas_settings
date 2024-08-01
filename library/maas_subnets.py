@@ -325,13 +325,14 @@ def maas_delete_all_subnets(session, current_subnets, module, res):
     subnetlist = []
 
     for item in current_subnets:
+        subnet = current_subnets[item]
         subnetlist.append(item)
         res["changed"] = True
 
         if not module.check_mode:
             try:
                 r = session.delete(
-                    f"{module.params['site']}/api/2.0/subnets/{item}/",
+                    f"{module.params['site']}/api/2.0/subnets/{subnet['id']}/",
                 )
                 r.raise_for_status()
             except exceptions.RequestException as e:

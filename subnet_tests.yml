@@ -59,3 +59,19 @@
       vars:
         subnets:
           - cidr: 192.168.67.0/24
+    - name: Remove all subnets
+      maas_subnets:
+        subnets: []
+        state: exact
+      delegate_to: localhost
+    - name: Reset to original state
+      maas_subnets:
+        subnets: "{{ subnets }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        subnets:
+          - cidr: 10.66.0.0/16
+            gateway_ip: 10.66.0.1
+            name: 10.66.0.0/16
+            vid: 0
