@@ -452,8 +452,6 @@ def run_module():
         item["cidr"]: item for item in get_maas_subnets(maas_session, module)
     }
 
-    # module.fail_json(msg=f"{current_subnets_dict}")
-
     if module.params["state"] == "present":
         maas_add_subnets(
             maas_session,
@@ -497,8 +495,6 @@ def validate_module_parameters(module):
     Perform simple validations on module parameters
     """
 
-    import string
-
     subnets = module.params["subnets"]
 
     # Ensure we have all keys that we support modifying so that
@@ -522,6 +518,21 @@ def validate_module_parameters(module):
                         subnet["vid"] = "0"
                 else:
                     subnet[key] = ""
+
+    # SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid", "vlan"]
+
+    from netaddr import AddrFormatError, IPNetwork, IPAddress
+
+    # Validate IP related info
+    try:
+
+        for subnet in subnets:
+            network = IPNetwork(subnet["cidr"])
+
+    except AddrFormatError as e:
+        module.fail_json(
+            msg="CIDR address given {} is invalid: {}".format(subnet["cidr"], str(e))
+        )
 
 
 def main():
