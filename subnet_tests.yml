@@ -74,11 +74,34 @@
           - cidr: 10.66.0.0/16
             gateway_ip: 10.66.0.1
             name: 10.66.0.0/16
-            vid: 0
+          - cidr: 192.168.66.0/24
+            gateway_ip: 192.168.66.1
+            name: Test 192.168 Network
     - name: Try to add invalid CIDR
       maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
+      ignore_errors: true
       vars:
         subnets:
           - cidr: 192.168.256.0/24
+    - name: Try to add invalid DNS
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        subnets:
+          - cidr: 192.168.255.0/24
+            dns_servers:
+              - 10.66.0.5
+              - 10.256.1.2
+    - name: Try to add invalid gateway_ip
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        subnets:
+          - cidr: 192.168.255.0/24
+            gateway_ip: 192.167.255.1

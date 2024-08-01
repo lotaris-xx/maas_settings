@@ -520,26 +520,29 @@ def validate_module_parameters(module):
                 else:
                     subnet[key] = ""
 
-    # SUBNET_MODIFY_KEYS = ["description", "dns_servers", "gateway_ip", "name", "vid", "vlan"]
-
     # Validate IP related info
     for subnet in subnets:
         try:
-            network = ipaddress.ip_network(subnet["cidr"])
+            subnet_network = ip_network(subnet["cidr"])
 
         except ValueError as e:
             module.fail_json(msg="CIDR address given is invalid: {}".format(str(e)))
 
         try:
             for dns_server in subnet["dns_servers"]:
-                dns_address = ipaddress.ip_address(dns_server)
+                dns_address = ip_address(dns_server)
 
         except ValueError as e:
             module.fail_json(msg="DNS address given is invalid: {}".format(str(e)))
 
         try:
             if subnet["gateway_ip"]:
-                gateway_ip = ipaddress.ip_address(subnet["gateway_ip"])
+                gateway_ip = ip_address(subnet["gateway_ip"])
+
+                if gateway_ip not in subnet_network:
+                    module.fail_json(
+                        msg=f"The gateway IP given {gateway_ip} is not in the subnet {subnet_network}"
+                    )
 
         except ValueError as e:
             module.fail_json(
