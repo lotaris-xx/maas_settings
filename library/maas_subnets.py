@@ -497,34 +497,35 @@ def validate_module_parameters(module):
     """
 
     subnets = module.params["subnets"]
-
-    # Ensure we have all keys that we support modifying so that
-    # We can easily compare and detect needed changes
+    invalid_vid_list = []
 
     for subnet in subnets:
+
+        # Ensure we have all keys that we support modifying so that
+        # We can easily compare and detect needed changes
+
         if "cidr" not in subnet.keys():
             module.fail_json(msg="cidr is a required parameter, but not given.")
 
         if "vlan" in subnet.keys():
-            subnet["vid"] = subnet["vlan"]["vid"]
+            subnet["vid"] = int(subnet["vlan"]["vid"])
 
         for key in SUBNET_MODIFY_KEYS:
             if key not in subnet.keys():
                 if key == "dns_servers":
                     subnet[key] = []
                 elif key == "vid":
-                    subnet[key] = "0"
+                    subnet[key] = 0
                 elif key == "vlan":
                     if "vid" in subnet.keys():
                         subnet[key] = {"vid": subnet["vid"]}
                     else:
-                        subnet[key] = {"vid": "0"}
-                        subnet["vid"] = "0"
+                        subnet[key] = {"vid": 0}
+                        subnet["vid"] = 0
                 else:
                     subnet[key] = ""
 
-    # Validate IP related info
-    for subnet in subnets:
+        # Validate IP related info
         try:
             subnet_network = ip_network(subnet["cidr"])
 
@@ -551,6 +552,15 @@ def validate_module_parameters(module):
             module.fail_json(
                 msg="Gateway IP address given is invalid: {}".format(str(e))
             )
+
+        # Detect invalid vids
+        if not type(subnet["vid"]) is int or subnet["vid"] < 0 or subnet["vid"] > 4094:
+            invalid_vid_list.append(subnet["vid"])
+
+    if invalid_vid_list:
+        module.fail_json(
+            msg=f"Invalid VIDs detected {invalid_vid_list} from: {subnets}"
+        )
 
 
 def main():

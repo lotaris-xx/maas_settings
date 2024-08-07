@@ -18,6 +18,7 @@
             description: Test 192.168 network
             cidr: 192.168.66.0/24
             gateway_ip: 192.168.66.1
+
     - name: Add another subnet
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -28,6 +29,7 @@
             description: Test 192.168.67 network
             cidr: 192.168.67.0/24
             gateway_ip: 192.168.67.1
+
     - name: Add DNS servers to a subnet
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -41,6 +43,7 @@
               - 10.66.0.5
               - 10.66.0.6
             gateway_ip: 192.168.66.1
+
     - name: Remove DNS servers from a subnet
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -51,6 +54,7 @@
             description: Test 192.168 network
             cidr: 192.168.66.0/24
             gateway_ip: 192.168.66.1
+
     - name: Remove a subnet
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -59,11 +63,13 @@
       vars:
         subnets:
           - cidr: 192.168.67.0/24
+
     - name: Remove all subnets
       maas_subnets:
         subnets: []
         state: exact
       delegate_to: localhost
+
     - name: Reset to original state using exact state
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -78,6 +84,7 @@
             gateway_ip: 192.168.66.1
             name: Test192
             description: Test 192.168 network
+
     - name: Try to add subnet with no CIDR
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -86,6 +93,7 @@
       vars:
         subnets:
           - name: 192.168.256.0/24
+
     - name: Try to add invalid CIDR
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -94,6 +102,7 @@
       vars:
         subnets:
           - cidr: 192.168.256.0/24
+
     - name: Try to add invalid DNS
       maas_subnets:
         subnets: "{{ subnets }}"
@@ -105,7 +114,8 @@
             dns_servers:
               - 10.66.0.5
               - 10.256.1.2
-    - name: Try to add invalid gateway_ip
+
+    - name: Try to add invalid gateway_ip (not an IP)
       maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
@@ -114,3 +124,24 @@
         subnets:
           - cidr: 192.168.255.0/24
             gateway_ip: 192.167.255.1
+
+    - name: Try to add invalid gateway_ip (not in cidr)
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        subnets:
+          - cidr: 192.168.255.0/24
+            gateway_ip: 192.167.255.1
+
+    - name: Try to add invalid vid
+      maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        subnets:
+          - cidr: 192.168.255.0/24
+            gateway_ip: 192.168.255.1
+            vid: invalid_vid
