@@ -7,6 +7,7 @@ from ansible.module_utils.basic import missing_required_lib
 
 from collections import Counter
 from yaml import safe_dump
+from ipaddress import ip_address, ip_network
 
 try:
     from requests import post, exceptions
@@ -147,9 +148,8 @@ def static_route_needs_updating(current, wanted, module):
     wanted_filtered = {k: v for k, v in wanted.items() if k in STATIC_ROUTE_MODIFY_KEYS}
 
     # We need to compare manually as source may match name or cidr attributes
-    if "metric" in wanted_filtered.keys():
-        if str(wanted_filtered["metric"]) != str(current_filtered["metric"]):
-            ret = True
+    if str(wanted_filtered["metric"]) != str(current_filtered["metric"]):
+        ret = True
 
     if wanted_filtered["gateway_ip"] != current_filtered["gateway_ip"]:
         ret = True
@@ -512,6 +512,40 @@ def validate_module_parameters(module):
     Perform simple validations on module parameters
     """
     static_routes = module.params["static_routes"]
+
+    # Ensure we have all keys that we support modifying so that
+    # We can easily compare and detect needed changes
+
+    for sroute in static_routes:
+        if "metric" not in sroute.keys():
+            sroute["metric"] = 1
+
+        # Validate IP related info
+
+        try:
+            if "source" in sroute.keys():
+                source_network = ip_network(sroute["source"])
+
+        except ValueError as e:
+            module.fail_json(msg="Source network is invalid: {}".format(str(e)))
+
+        try:
+            dest_network = ip_network(sroute["destination"])
+
+        except ValueError as e:
+            module.fail_json(msg="Destination network is invalid: {}".format(str(e)))
+
+        try:
+            if "gateway_ip" in sroute.keys():
+                gateway_ip = ip_address(sroute["gateway_ip"])
+
+                if gateway_ip not in source_network:
+                    module.fail_json(
+                        msg=f"The gateway IP {gateway_ip} is not in the source {source_network}"
+                    )
+
+        except ValueError as e:
+            module.fail_json(msg="Gateway IP address is invalid: {}".format(str(e)))
 
 
 def main():

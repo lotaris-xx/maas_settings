@@ -68,3 +68,55 @@
       delegate_to: localhost
       vars:
         static_routes: []
+
+    - name: Try invalid source
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        static_routes:
+          - source: 10.66.256.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.0.1
+            metric: 1
+
+    - name: Try invalid dest
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.266.0/24
+            gateway_ip: 10.66.0.1
+            metric: 1
+
+    - name: Try invalid gateway_ip (not an IP)
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.01
+            metric: 1
+
+    - name: Try invalid gateway_ip (not in source network)
+      maas_static_routes:
+        static_routes: "{{ static_routes }}"
+        state: exact
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.67.0.1
+            metric: 1
