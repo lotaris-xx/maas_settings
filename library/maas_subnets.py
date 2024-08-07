@@ -530,14 +530,14 @@ def validate_module_parameters(module):
             subnet_network = ip_network(subnet["cidr"])
 
         except ValueError as e:
-            module.fail_json(msg="CIDR address given is invalid: {}".format(str(e)))
+            module.fail_json(msg="CIDR address is invalid: {}".format(str(e)))
 
         try:
             for dns_server in subnet["dns_servers"]:
                 dns_address = ip_address(dns_server)
 
         except ValueError as e:
-            module.fail_json(msg="DNS address given is invalid: {}".format(str(e)))
+            module.fail_json(msg="DNS address is invalid: {}".format(str(e)))
 
         try:
             if subnet["gateway_ip"]:
@@ -545,13 +545,11 @@ def validate_module_parameters(module):
 
                 if gateway_ip not in subnet_network:
                     module.fail_json(
-                        msg=f"The gateway IP given {gateway_ip} is not in the subnet {subnet_network}"
+                        msg=f"The gateway IP {gateway_ip} is not in the subnet {subnet_network}"
                     )
 
         except ValueError as e:
-            module.fail_json(
-                msg="Gateway IP address given is invalid: {}".format(str(e))
-            )
+            module.fail_json(msg="Gateway IP address is invalid: {}".format(str(e)))
 
         # Detect invalid vids
         if not type(subnet["vid"]) is int or subnet["vid"] < 0 or subnet["vid"] > 4094:
