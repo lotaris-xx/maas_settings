@@ -3,13 +3,13 @@
   hosts: all
   gather_facts: false
   module_defaults:
-    maas_static_routes:
+    rhc.maas_settings.maas_static_routes:
       username: "{{ maas_username }}"
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
     - name: Add a static route
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
       delegate_to: localhost
       vars:
@@ -19,7 +19,7 @@
             gateway_ip: 10.66.0.1
 
     - name: Add same route with a non-default metric
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
       delegate_to: localhost
       vars:
@@ -30,7 +30,7 @@
             metric: 1
 
     - name: Add again with no metric defined (should change back)
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
       delegate_to: localhost
       vars:
@@ -40,7 +40,7 @@
             gateway_ip: 10.66.0.1
 
     - name: Remove static routes (some existing, some not)
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: absent
       delegate_to: localhost
@@ -50,7 +50,7 @@
           - destination: 2.0.0.0/8
 
     - name: Exact static
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost
@@ -62,7 +62,7 @@
             metric: 1
 
     - name: Exact static (empty list)
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost
@@ -70,7 +70,7 @@
         static_routes: []
 
     - name: Try invalid source
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost
@@ -83,7 +83,7 @@
             metric: 1
 
     - name: Try invalid dest
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost
@@ -96,7 +96,7 @@
             metric: 1
 
     - name: Try invalid gateway_ip (not an IP)
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost
@@ -109,7 +109,7 @@
             metric: 1
 
     - name: Try invalid gateway_ip (not in source network)
-      maas_static_routes:
+      rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"
         state: exact
       delegate_to: localhost

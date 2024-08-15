@@ -3,13 +3,13 @@
   hosts: all
   gather_facts: false
   module_defaults:
-    maas_tags:
+    rhc.maas_settings.maas_tags:
       username: "{{ maas_username }}"
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
     - name: Add some tags
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
       delegate_to: localhost
       vars:
@@ -17,7 +17,7 @@
           - name: first_tag
           - name: virtual
     - name: Modify a tag
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
       delegate_to: localhost
       vars:
@@ -25,7 +25,7 @@
           - name: first_tag
             comment: This is the first tag
     - name: Remove a tag
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
         state: absent
       delegate_to: localhost
@@ -33,7 +33,7 @@
         maas_tags:
           - name: first_tag
     - name: Exact List
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
         state: exact
       delegate_to: localhost
@@ -42,7 +42,7 @@
           - name: first_tag
           - name: virtual
     - name: Exact List with changes
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
         state: exact
       delegate_to: localhost
@@ -50,14 +50,14 @@
         maas_tags:
           - name: virtual
     - name: Exact List with no members
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
         state: exact
       delegate_to: localhost
       vars:
         maas_tags: []
     - name: Add an invalid tag
-      maas_tags:
+      rhc.maas_settings.maas_tags:
         tags: "{{ maas_tags }}"
       delegate_to: localhost
       ignore_errors: true

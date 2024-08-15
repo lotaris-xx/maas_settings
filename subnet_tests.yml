@@ -3,13 +3,13 @@
   hosts: all
   gather_facts: false
   module_defaults:
-    maas_subnets:
+    rhc.maas_settings.maas_subnets:
       username: "{{ maas_username }}"
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
     - name: Add a subnet
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       vars:
@@ -20,7 +20,7 @@
             gateway_ip: 192.168.66.1
 
     - name: Add another subnet
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       vars:
@@ -31,7 +31,7 @@
             gateway_ip: 192.168.67.1
 
     - name: Add DNS servers to a subnet
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       vars:
@@ -45,7 +45,7 @@
             gateway_ip: 192.168.66.1
 
     - name: Remove DNS servers from a subnet
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       vars:
@@ -56,7 +56,7 @@
             gateway_ip: 192.168.66.1
 
     - name: Remove a subnet
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
         state: absent
       delegate_to: localhost
@@ -65,13 +65,13 @@
           - cidr: 192.168.67.0/24
 
     - name: Remove all subnets
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: []
         state: exact
       delegate_to: localhost
 
     - name: Reset to original state using exact state
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
         state: exact
       delegate_to: localhost
@@ -86,7 +86,7 @@
             description: Test 192.168 network
 
     - name: Try to add subnet with no CIDR
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
@@ -95,7 +95,7 @@
           - name: 192.168.256.0/24
 
     - name: Try to add invalid CIDR
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
@@ -104,7 +104,7 @@
           - cidr: 192.168.256.0/24
 
     - name: Try to add invalid DNS
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
@@ -116,7 +116,7 @@
               - 10.256.1.2
 
     - name: Try to add invalid gateway_ip (not an IP)
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
@@ -126,7 +126,7 @@
             gateway_ip: 192.167.255.1
 
     - name: Try to add invalid gateway_ip (not in cidr)
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
@@ -136,7 +136,7 @@
             gateway_ip: 192.167.255.1
 
     - name: Try to add invalid vid
-      maas_subnets:
+      rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
       delegate_to: localhost
       ignore_errors: true
