@@ -1,0 +1,4 @@
+---
+collections:
+  - name: https://github.com/lotaris-xx/collections.git#/maas_settings/
+    type: git
