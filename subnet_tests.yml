@@ -30,6 +30,18 @@
             cidr: 192.168.67.0/24
             gateway_ip: 192.168.67.1
 
+    - name: Add single DNS server to a subnet
+      rhc.maas_settings.maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192
+            description: Test 192.168 network
+            cidr: 192.168.66.0/24
+            dns_servers: 10.66.0.5
+            gateway_ip: 192.168.66.1
+
     - name: Add DNS servers to a subnet
       rhc.maas_settings.maas_subnets:
         subnets: "{{ subnets }}"
@@ -42,6 +54,18 @@
             dns_servers:
               - 10.66.0.5
               - 10.66.0.6
+            gateway_ip: 192.168.66.1
+
+    - name: Add DNS servers to a subnet (space seperated list)
+      rhc.maas_settings.maas_subnets:
+        subnets: "{{ subnets }}"
+      delegate_to: localhost
+      vars:
+        subnets:
+          - name: Test192
+            description: Test 192.168 network
+            cidr: 192.168.66.0/24
+            dns_servers: 10.66.0.7 10.66.0.8
             gateway_ip: 192.168.66.1
 
     - name: Remove DNS servers from a subnet
