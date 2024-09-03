@@ -1,0 +1,42 @@
+---
+- name: Demonstrate operating on MAAS config settings
+  hosts: all
+  gather_facts: false
+  module_defaults:
+    rhc.maas_settings.maas_configs:
+      username: "{{ maas_username }}"
+      password: "{{ maas_password }}"
+      site: "{{ maas_site }}"
+  tasks:
+    - name: Initial settings
+      rhc.maas_settings.maas_configs:
+        configs: "{{ maas_configs }}"
+      delegate_to: localhost
+      vars:
+        maas_configs:
+          upstream_dns: "10.66.3.25 10.66.3.26"
+          ntp_servers: "10.251.4.4 10.251.4.5 10.252.4.4 10.252.4.5"
+    - name: Change settings
+      rhc.maas_settings.maas_configs:
+        configs: "{{ maas_configs }}"
+      delegate_to: localhost
+      vars:
+        maas_configs:
+          upstream_dns: "10.66.3.25 10.66.3.26"
+          ntp_servers: "10.251.4.44 10.251.4.5 10.252.4.44 10.252.4.5"
+    - name: Change back
+      rhc.maas_settings.maas_configs:
+        configs: "{{ maas_configs }}"
+      delegate_to: localhost
+      vars:
+        maas_configs:
+          upstream_dns: "10.66.3.25 10.66.3.26"
+          ntp_servers: "10.251.4.4 10.251.4.5 10.252.4.4 10.252.4.5"
+    - name: Invalid config
+      rhc.maas_settings.maas_configs:
+        configs: "{{ maas_configs }}"
+      delegate_to: localhost
+      ignore_errors: True
+      vars:
+        maas_configs:
+          summon_pizza_api_endpoint: "https://getpizza.io/getpizza/"
