@@ -1,15 +1,22 @@
 ---
-- name: Demonstrate operating on MAAS VLANs
+- name: Demonstrate operating on MAAS Node Scripts
   hosts: all
   gather_facts: false
   module_defaults:
-    maas_node_scripts:
+    rhc.maas_settings.maas_node_scripts:
       username: "{{ maas_username }}"
       password: "{{ maas_password }}"
       site: "{{ maas_site }}"
   tasks:
-    - name: Add two VLANS
-      maas_node_scripts:
+    - name: Grab the A version of the script
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/files/script1.sh"
+        src: "{{ playbook_dir }}/files/script1a.sh"
+        state: hard
+        force: true
+      delegate_to: localhost
+    - name: Add a Node Script
+      rhc.maas_settings.maas_node_scripts:
         script_dir: /root/user_scripts/
         user_scripts: "{{ user_scripts }}"
       delegate_to: localhost
@@ -17,3 +24,14 @@
         user_scripts:
           - name: Script 1
             file: script1.sh
+
+    - name: Add a script which has no local file
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        user_scripts:
+          - name: No such Script
+            file: scriptfoo
