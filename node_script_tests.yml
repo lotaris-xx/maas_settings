@@ -15,6 +15,14 @@
         state: hard
         force: true
       delegate_to: localhost
+
+    - name: Remove all node scripts
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: []
+        state: exact
+      delegate_to: localhost
+
     - name: Add a Node Script
       rhc.maas_settings.maas_node_scripts:
         script_dir: /root/user_scripts/
@@ -22,7 +30,35 @@
       delegate_to: localhost
       vars:
         user_scripts:
-          - name: Script 1
+          - name: script1
+            file: script1.sh
+
+    - name: Add the same script
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+      delegate_to: localhost
+      vars:
+        user_scripts:
+          - name: script1
+            file: script1.sh
+
+    - name: Grab the B version of the script
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/files/script1.sh"
+        src: "{{ playbook_dir }}/files/script1b.sh"
+        state: hard
+        force: true
+      delegate_to: localhost
+
+    - name: Add the B version of the script
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+      delegate_to: localhost
+      vars:
+        user_scripts:
+          - name: script1
             file: script1.sh
 
     - name: Add a script which has no local file
@@ -33,5 +69,5 @@
       ignore_errors: true
       vars:
         user_scripts:
-          - name: No such Script
+          - name: no_such_script
             file: scriptfoo
