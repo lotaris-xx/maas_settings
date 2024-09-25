@@ -33,7 +33,7 @@
           - name: script1
             file: script1.sh
 
-    - name: Add the same script
+    - name: Add multiple scripts
       rhc.maas_settings.maas_node_scripts:
         script_dir: /root/user_scripts/
         user_scripts: "{{ user_scripts }}"
@@ -42,8 +42,10 @@
         user_scripts:
           - name: script1
             file: script1.sh
+          - name: script2
+            file: script2.sh
 
-    - name: Grab the B version of the script
+    - name: Grab the B version script1
       ansible.builtin.file:
         path: "{{ playbook_dir }}/files/script1.sh"
         src: "{{ playbook_dir }}/files/script1b.sh"
@@ -51,7 +53,7 @@
         force: true
       delegate_to: localhost
 
-    - name: Add the B version of the script
+    - name: Add the B version of script1
       rhc.maas_settings.maas_node_scripts:
         script_dir: /root/user_scripts/
         user_scripts: "{{ user_scripts }}"
@@ -60,6 +62,30 @@
         user_scripts:
           - name: script1
             file: script1.sh
+
+    - name: Set exact scripts
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+        state: exact
+      delegate_to: localhost
+      vars:
+        user_scripts:
+          - name: script2
+            file: script2.sh
+
+    - name: Remove given scripts
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+        state: absent
+      delegate_to: localhost
+      vars:
+        user_scripts:
+          - name: script1
+            file: script1.sh
+          - name: script2
+            file: script2.sh
 
     - name: Add a script which has no local file
       rhc.maas_settings.maas_node_scripts:
@@ -71,3 +97,14 @@
         user_scripts:
           - name: no_such_script
             file: scriptfoo
+
+    - name: Add a script which has an invalid name
+      rhc.maas_settings.maas_node_scripts:
+        script_dir: /root/user_scripts/
+        user_scripts: "{{ user_scripts }}"
+      delegate_to: localhost
+      ignore_errors: true
+      vars:
+        user_scripts:
+          - name: Script 2
+            file: script2.sh
