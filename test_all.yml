@@ -1,0 +1,12 @@
+---
+- name: Test all playbooks
+  hosts: all
+  gather_facts: false
+  tasks:
+
+- ansible.builtin.import_playbook: vlan_tests.yml
+- ansible.builtin.import_playbook: config_tests.yml
+- ansible.builtin.import_playbook: node_script_tests.yml
+- ansible.builtin.import_playbook: tag_tests.yml
+- ansible.builtin.import_playbook: subnet_tests.yml
+- ansible.builtin.import_playbook: static_route_tests.yml
