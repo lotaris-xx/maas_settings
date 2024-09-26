@@ -2,4 +2,4 @@ local_files/*
 ansible-navigator.log
 *.bak
 __pycache__
-files/script1.sh
+playbooks/files/script1.sh
