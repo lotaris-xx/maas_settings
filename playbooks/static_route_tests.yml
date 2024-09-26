@@ -39,6 +39,16 @@
             destination: 192.168.66.0/24
             gateway_ip: 10.66.0.1
 
+    - name: Add again
+      rhc.maas_settings.maas_static_routes:
+        static_routes: "{{ static_routes }}"
+      delegate_to: localhost
+      vars:
+        static_routes:
+          - source: 10.66.0.0/16
+            destination: 192.168.66.0/24
+            gateway_ip: 10.66.0.1
+
     - name: Remove static routes (some existing, some not)
       rhc.maas_settings.maas_static_routes:
         static_routes: "{{ static_routes }}"

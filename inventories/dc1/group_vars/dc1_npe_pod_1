@@ -1,11 +1,11 @@
 ---
 maas_configs_pod:
   subnets:
-    name: "10.1.2.0/24"
-    description: "IT utility"
-    vid: "400"
-    cidr: "10.1.2.0/24"
-    gateway_ip: "10.1.2.1"
-    dns_servers: "10.1.0.53"
+    - name: "10.1.2.0/24"
+      description: "IT utility"
+      vid: "400"
+      cidr: "10.1.2.0/24"
+      gateway_ip: "10.1.2.1"
+      dns_servers: "10.1.0.53"
   vlans:
     - name: "400"

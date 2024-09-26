@@ -12,18 +12,48 @@ maas_password: !vault |
           33656535663464386230663266346631363730653763616166633737366266386633666235393062
           6666653032386232650a623839383161356339313535643164363735623331336364323062336335
           3264
-maas_site: "http://maas1.internal.lotaris.org:5240/MAAS"
 
 dns_server: 10.66.0.1
 
 maas_configs_global:
+  maas:
+    upstream_dns: 10.66.3.25 10.66.3.26
+    ntp_servers:  10.251.4.4 10.251.4.5 10.252.4.4 10.252.4.5
+    network_discovery: disabled
+  node_scripts:
+    scripts_dir: /root/user_scripts
+    user_scripts:
+      - name: Script1
+        file: script1.sh
+      - name: Script2
+        file: script2.sh
+  static_routes:
+    - source: 10.66.0.0/16
+      destination: 192.168.66.0/24
+      gateway_ip: 10.66.0.1
+  subnets:
+    -  subnet_name: 10.168.0.0/24
+       cidr: 10.168.0.0/24
+       dns_servers: 10.168.0.5
+       vid: 100
+    -  subnet_name: 10.169.0.0/24
+       cidr: 10.169.0.0/24
+       dns_servers: 10.168.0.6
+       vid: 200
   untagged_subnets:
-    - subnet_name: "192.168.10.0/24"
-      cidr: "192.168.10.0/24"
-      dns_servers: "192.168.0.53"
-    - subnet_name: "NMS - 192.0.45.0/24"
-      cidr: "192.0.45.0/24"
-      dns_servers: "192.0.0.53"
+    - name: Test192
+      description: Test 192.168 network
+      cidr: 192.168.66.0/24
+      gateway_ip: 192.168.66.1
+    - name: Test10_66
+      description: Test 10.66.0.0 network
+      cidr: 10.66.0.0/16
+      gateway_ip: 10.66.0.1
+  tags:
+    - name: global_tag_1
+      comment: Global tag
+    - name: global_tag_2
+      comment: Another Global Tag
   vlans:
     - name: VLAN 100
       mtu: 9000
