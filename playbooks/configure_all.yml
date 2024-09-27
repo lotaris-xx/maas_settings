@@ -38,9 +38,9 @@
         configs: "{{ maas_configs['maas'] }}"
       delegate_to: localhost
 
-        #    - name: Clean up static routes
-        #      rhc.maas_settings.maas_static_routes:
-        #        static_routes: "{{ maas_configs['static_routes'] }}" 
-        #        state: exact
-        #      delegate_to: localhost
+    - name: Configure Static Routes
+      rhc.maas_settings.maas_static_routes:
+        static_routes: "{{ maas_configs['static_routes'] }}"
+        state: exact
+      delegate_to: localhost
 
