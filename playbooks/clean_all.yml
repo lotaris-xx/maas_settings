@@ -4,37 +4,34 @@
   gather_facts: false
   module_defaults:
     group/rhc.maas_settings.maas_settings_group:
-      username: "{{ maas_username }}"
-      password: "{{ maas_password }}"
+      username: "{{ maas_username | default(omit) }}"
+      password: "{{ maas_password | default(omit) }}"
+      token: "{{ maas_token | default(omit) }}"
       site: "{{ maas_site }}"
+      state: exact
   tasks:
     - name: Clean up the node_scripts
       rhc.maas_settings.maas_node_scripts:
         script_dir: /root/user_scripts/
         user_scripts: []
-        state: exact
       delegate_to: localhost
 
     - name: Clean up the tags
       rhc.maas_settings.maas_tags:
         tags: []
-        state: exact
       delegate_to: localhost
 
     - name: Clean up static routes
       rhc.maas_settings.maas_static_routes:
         static_routes: []
-        state: exact
       delegate_to: localhost
 
     - name: Clean up subnets
       rhc.maas_settings.maas_subnets:
         subnets: []
-        state: exact
       delegate_to: localhost
 
     - name: Clean up vlans
       rhc.maas_settings.maas_vlans:
         vlans: []
-        state: exact
       delegate_to: localhost
