@@ -4,8 +4,9 @@
   gather_facts: false
   module_defaults:
     rhc.maas_settings.maas_tags:
-      username: "{{ maas_username }}"
-      password: "{{ maas_password }}"
+      username: "{{ maas_username | default(omit) }}"
+      password: "{{ maas_password | default(omit) }}"
+      token: "{{ maas_token | default(omit) }}"
       site: "{{ maas_site }}"
   tasks:
     - name: Add some tags
