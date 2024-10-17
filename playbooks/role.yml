@@ -10,7 +10,7 @@
       site: "{{ maas_site }}"
       state: exact
   tasks:
-    - name: Configure MAAS
+    - name: Configure MAAS instance
       ansible.builtin.import_role:
         name: rhc.maas_settings.maas_settings
       delegate_to: localhost
