@@ -1,0 +1,16 @@
+---
+- name: Configure all settings
+  hosts: all
+  gather_facts: false
+  module_defaults:
+    group/rhc.maas_settings.maas_settings_group:
+      username: "{{ maas_username | default(omit) }}"
+      password: "{{ maas_password | default(omit) }}"
+      token: "{{ maas_token | default(omit) }}"
+      site: "{{ maas_site }}"
+      state: exact
+  tasks:
+    - name: Configure MAAS
+      ansible.builtin.import_role:
+        name: rhc.maas_settings.maas_settings
+      delegate_to: localhost
